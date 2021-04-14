@@ -1,5 +1,6 @@
 import pandas as pd
 from tqdm.contrib.concurrent import process_map
+from tqdm.contrib import tmap
 
 
 def input_series(func):
@@ -11,12 +12,15 @@ def input_series(func):
     return wrapper
 
 
-def parallel_apply(series, func, **kwargs):
-    if "name" in kwargs:
-        res = process_map(func, series, desc=kwargs["name"])
-    else:
-        res = process_map(func, series)
+def parallel_apply(series, func, name=None):
+    res = process_map(func, series, desc=name)
+    return pd.Series(res)
+
+
+def progress_apply(series, func, name=None):
+    res = tmap(func, series, desc=name)
     return pd.Series(res)
 
 
 pd.Series.parallel_apply = parallel_apply
+pd.Series.progress_apply = progress_apply

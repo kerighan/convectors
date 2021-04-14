@@ -20,9 +20,10 @@ class Tokenize(Layer):
         strip_punctuation=True,
         lower=True,
         name=None,
-        verbose=True
+        verbose=True,
+        parallel=False
     ):
-        super(Tokenize, self).__init__(input, output, name, verbose)
+        super(Tokenize, self).__init__(input, output, name, verbose, parallel)
         if stopwords is not None:
             if isinstance(stopwords, set):
                 self.stopwords = stopwords
@@ -57,9 +58,10 @@ class Snowball(Layer):
         lang="french",
         memoize=True,
         name=None,
-        verbose=True
+        verbose=True,
+        parallel=False
     ):
-        super(Snowball, self).__init__(input, output, name, verbose)
+        super(Snowball, self).__init__(input, output, name, verbose, parallel)
         from nltk.stem.snowball import SnowballStemmer
         self.stemmer = SnowballStemmer(lang)
         self.memoize = memoize
@@ -92,9 +94,10 @@ class Phrase(Layer):
         min_count=3,
         threshold=3,
         name=None,
-        verbose=True
+        verbose=True,
+        parallel=False
     ):
-        super(Phrase, self).__init__(input, output, name, verbose)
+        super(Phrase, self).__init__(input, output, name, verbose, parallel)
         self.min_count = min_count
         self.threshold = threshold
 

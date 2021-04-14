@@ -40,14 +40,23 @@ class Sequential:
         self.add(layer)
         return self
 
+    def save(self, filename):
+        import dill
+
+        with open(filename, "wb") as f:
+            dill.dump(self, f)
+
 
 class Layer:
+    document_wise = True
+
     def __init__(
         self,
         input=None,
         output=None,
         name=None,
-        verbose=True
+        verbose=True,
+        parallel=False
     ):
         self.input = input
         self.output = output
@@ -56,12 +65,7 @@ class Layer:
             name = self.__class__.__name__
         self.name = name
         self.trained = False
-
-    def save(self, filename):
-        import dill
-
-        with open(filename, "wb") as f:
-            dill.dump(self, f)
+        self.run_parallel = parallel
 
     def process(self, df):
         if self.input is None:
@@ -74,8 +78,13 @@ class Layer:
     def apply(self, series):
         if self.trainable and not self.trained:
             self.fit(series)
-        if self.parallel:
-            return series.parallel_apply(self.process_doc, name=self.name)
+        if self.document_wise:
+            if self.parallel and self.run_parallel:
+                return series.parallel_apply(self.process_doc, name=self.name)
+            else:
+                return series.progress_apply(self.process_doc, name=self.name)
+        else:
+            return self.process_series(series)
 
     def __call__(self, df):
         if not isinstance(df, pd.DataFrame):
@@ -88,6 +97,12 @@ class Layer:
         model.add(self)
         model.add(obj)
         return model
+
+    def save(self, filename):
+        import dill
+
+        with open(filename, "wb") as f:
+            dill.dump(self, f)
 
 
 # =============================================================================
