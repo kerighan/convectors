@@ -39,3 +39,25 @@ class SVD(ReduceLayer):
         self.reducer = TruncatedSVD(
             n_components=n_components,
             **kwargs)
+
+
+class UMAP(ReduceLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        n_components=2,
+        n_neighbors=10,
+        min_dist=0,
+        name=None,
+        verbose=True,
+        **kwargs,
+    ):
+        super(UMAP, self).__init__(input, output, name, verbose)
+
+        from umap import UMAP as UP
+        self.reducer = UP(
+            n_components=n_components,
+            n_neighbors=n_neighbors,
+            min_dist=min_dist,
+            **kwargs)

@@ -33,6 +33,11 @@ class Sequential:
         for layer in self.layers:
             layer.process(df)
 
+    def fit(self, df):
+        for layer in self.layers:
+            layer.trained = False
+        self.__call__(df)
+
     def __call__(self, df):
         if not isinstance(df, pd.DataFrame):
             return self.apply(df)
@@ -85,7 +90,8 @@ class Layer:
     @input_series
     def apply(self, series):
         if self.trainable and not self.trained:
-            self.fit(series)
+            for _ in tqdm(range(1), desc=f"Fitting {self.name}"):
+                self.fit(series)
         if self.document_wise:
             if self.parallel and self.run_parallel:
                 return series.parallel_apply(self.process_doc, name=self.name)
