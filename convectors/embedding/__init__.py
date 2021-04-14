@@ -1,4 +1,5 @@
 from .. import Layer
+import numpy as np
 
 
 class TfIdf(Layer):
@@ -33,10 +34,9 @@ class TfIdf(Layer):
     def fit(self, series):
         self.vectorizer.fit(series)
         self.trained = True
-        print(self.vectorizer.get_feature_names())
 
     def process_series(self, series):
         res = self.vectorizer.transform(series)
         if self.sparse:
             return res
-        return res.todense()
+        return np.array(res.todense())

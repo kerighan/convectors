@@ -5,21 +5,21 @@ from tqdm.contrib import tmap
 
 def input_series(func):
     def wrapper(*args, **kwargs):
-        if not isinstance(args[1], pd.Series):
-            args = list(args)
-            args[1] = pd.Series(args[1])
+        # if args[0].parallel and not isinstance(args[1], pd.Series):
+        #     args = list(args)
+        #     args[1] = pd.Series(args[1])
         return func(*args, **kwargs)
     return wrapper
 
 
 def parallel_apply(series, func, name=None):
     res = process_map(func, series, desc=name)
-    return pd.Series(res)
+    return pd.Series(res, index=series.index)
 
 
 def progress_apply(series, func, name=None):
     res = tmap(func, series, desc=name)
-    return pd.Series(res)
+    return pd.Series(res, index=series.index)
 
 
 pd.Series.parallel_apply = parallel_apply

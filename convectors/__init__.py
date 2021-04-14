@@ -1,5 +1,8 @@
 import pandas as pd
+import numpy as np
 from .utils import input_series
+from scipy.sparse import issparse
+from tqdm import tqdm
 
 
 class Sequential:
@@ -72,7 +75,12 @@ class Layer:
             raise KeyError(f"{self.name}: no input defined")
         elif self.output is None:
             self.output = self.input
-        df[self.output] = self.apply(df[self.input])
+
+        res = self.apply(df[self.input])
+        if isinstance(res, np.ndarray) or issparse(res):
+            df[self.output] = list(res)
+        else:
+            df[self.output] = res
 
     @input_series
     def apply(self, series):
@@ -84,7 +92,9 @@ class Layer:
             else:
                 return series.progress_apply(self.process_doc, name=self.name)
         else:
-            return self.process_series(series)
+            for _ in tqdm(range(1), desc=self.name):
+                res = self.process_series(series)
+            return res
 
     def __call__(self, df):
         if not isinstance(df, pd.DataFrame):
@@ -114,3 +124,15 @@ def load_model(filename):
     with open(filename, "rb") as f:
         obj = dill.load(f)
     return obj
+
+
+def to_matrix(series):
+    from scipy.sparse import issparse, vstack
+    if issparse(series) or isinstance(series, np.ndarray):
+        pass
+    else:
+        if isinstance(series[0], np.ndarray):
+            series = np.array(series.tolist())
+        elif issparse(series[0]):
+            series = vstack(series.tolist())
+    return series
