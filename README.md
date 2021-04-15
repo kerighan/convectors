@@ -1,4 +1,4 @@
-Convectors, a library to easily build end-to-end NLP pipelines
+Convectors: build end-to-end NLP pipelines
 ==========
 
 Inspired by the Keras syntax, Convectors allows you to build NLP pipelines by adding different processing Layers.
