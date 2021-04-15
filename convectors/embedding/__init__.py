@@ -32,7 +32,7 @@ class TfIdf(Layer):
             token_pattern=None,
             **kwargs)
 
-    def fit(self, series):
+    def fit(self, series, y=None):
         self.vectorizer.fit(series)
 
     def process_series(self, series):
@@ -71,7 +71,7 @@ class Count(Layer):
             token_pattern=None,
             **kwargs)
 
-    def fit(self, series):
+    def fit(self, series, y=None):
         self.vectorizer.fit(series)
 
     def process_series(self, series):
@@ -115,7 +115,7 @@ class Embedding(Layer):
         self.word2id = {}
         self.unk_token = unk_token
 
-    def fit(self, series):
+    def fit(self, series, y=None):
         from collections import Counter
         import itertools
 
@@ -204,7 +204,7 @@ class OneHot(Layer):
         self.class2id = {}
         self.multilabel = False
 
-    def fit(self, series):
+    def fit(self, series, y=None):
         from collections import Counter
         import itertools
         if isinstance(series[0], list):

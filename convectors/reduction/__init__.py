@@ -15,9 +15,8 @@ class ReduceLayer(Layer):
     ):
         super(ReduceLayer, self).__init__(input, output, name, verbose, False)
 
-    def fit(self, series):
+    def fit(self, series, y=None):
         self.reducer.fit(to_matrix(series))
-        self.trained = True
 
     def process_series(self, series):
         return self.reducer.transform(to_matrix(series))

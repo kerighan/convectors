@@ -101,12 +101,11 @@ class Phrase(Layer):
         self.min_count = min_count
         self.threshold = threshold
 
-    def fit(self, series):
+    def fit(self, series, y=None):
         self.pmi = set(pmi(
             series, window_size=1,
             minimum=self.threshold,
             threshold=self.min_count).keys())
-        self.trained = True
 
     def process_doc(self, text):
         if len(text) == 0:

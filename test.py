@@ -1,28 +1,23 @@
-from convectors.layers import (
-    Tokenize, Embedding, OneHot, Phrase, Snowball)
+from convectors.layers import Tokenize, Snowball, TfIdf, SVD, SVM
 from sklearn.datasets import fetch_20newsgroups
-import pandas as pd
 
 # load data
-newsgroups_train = fetch_20newsgroups(subset='train')
-
-# turn data into a DataFrame
-df = pd.DataFrame()
-df["text"] = newsgroups_train.data
-df["target"] = list(newsgroups_train.target)
-print(df)
+training_set = fetch_20newsgroups(subset='train')
+testing_set = fetch_20newsgroups(subset='test')
 
 # create encoder model
-encoder = Tokenize(stopwords=["en"])
-encoder += Snowball(lang="english")
-encoder += Phrase()
-encoder += Embedding(pad=True, maxlen=200)
-print(encoder(df.text))
-# X = encoder(df.text)
+nlp = Tokenize(stopwords=["en"])
+nlp += Snowball(lang="english")
+nlp += TfIdf(max_features=20000, max_df=.3)
+nlp += SVD(n_components=400)
+nlp += SVM()
 
-# # one hot model
-# one_hot = OneHot(to_categorical=False)
-# y = one_hot(df.target)
+# fit and train model with just one call
+nlp(training_set.data,
+    y=training_set.target)
 
-# print(X)
-# print(y)
+# use trained model for inference
+y_pred = nlp(testing_set.data)
+y_true = testing_set.target
+# compute accuracy
+print((y_true == y_pred).mean())

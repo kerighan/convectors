@@ -24,25 +24,25 @@ class Model:
         layer.name = layer_name
         self.layers.append(layer)
 
-    def apply(self, series):
+    def apply(self, series, y=None):
         for layer in self.layers:
-            series = layer.apply(series)
+            series = layer.apply(series, y=y)
         return series
 
-    def process(self, df):
+    def process(self, df, y=None):
         for layer in self.layers:
-            layer.process(df)
+            layer.process(df, y=y)
 
     def fit(self, df):
         for layer in self.layers:
             layer.trained = False
         self.__call__(df)
 
-    def __call__(self, df):
+    def __call__(self, df, y=None):
         if not isinstance(df, pd.DataFrame):
-            return self.apply(df)
+            return self.apply(df, y=y)
         else:
-            self.process(df)
+            self.process(df, y=y)
 
     def __iadd__(self, layer):
         self.add(layer)
@@ -88,23 +88,23 @@ class Layer:
         self.trained = False
         self.run_parallel = parallel
 
-    def process(self, df):
+    def process(self, df, y=None):
         if self.input is None:
             raise KeyError(f"{self.name}: no input defined")
         elif self.output is None:
             self.output = self.input
 
-        res = self.apply(df[self.input])
+        res = self.apply(df[self.input], y=y)
         if isinstance(res, np.ndarray) or issparse(res):
             df[self.output] = list(res)
         else:
             df[self.output] = res
 
     @input_series
-    def apply(self, series):
+    def apply(self, series, y=None):
         if self.trainable and not self.trained:
-            for _ in tqdm(range(1), desc=f"Fitting {self.name}"):
-                self.fit(series)
+            for _ in tqdm(range(1), desc=f"{self.name} (fitting)"):
+                self.fit(series, y=y)
                 self.trained = True
         if self.document_wise:
             if self.parallel and self.run_parallel:
@@ -116,11 +116,11 @@ class Layer:
                 res = self.process_series(series)
             return res
 
-    def __call__(self, df):
+    def __call__(self, df, y=None):
         if not isinstance(df, pd.DataFrame):
-            return self.apply(df)
+            return self.apply(df, y)
         else:
-            self.process(df)
+            self.process(df, y)
 
     def __iadd__(self, obj):
         model = Model(verbose=self.verbose)
