@@ -5,8 +5,8 @@ from scipy.sparse import issparse
 from tqdm import tqdm
 
 
-class Sequential:
-    def __init__(self, name=None, verbose=True):
+class Model:
+    def __init__(self, name="Model", verbose=True):
         self.name = name
         self.verbose = verbose
         self.layers = []
@@ -47,6 +47,19 @@ class Sequential:
     def __iadd__(self, layer):
         self.add(layer)
         return self
+
+    def __repr__(self):
+        length = 40
+        t = "\n" + "+" + "-" * length + "+\n"
+        u = f"| {self.name}"
+        u += " " * (length + 1 - len(u)) + "|"
+        t += u + "\n" + "+" + "-" * length + "+"
+        for layer in self.layers:
+            u = "\n| " + layer.__repr__()
+            u += " " * (length + 2 - len(u)) + "|"
+            t += u
+        t += "\n" + "+" + "-" * length + "+"
+        return t
 
     def save(self, filename):
         import dill
@@ -109,14 +122,22 @@ class Layer:
             self.process(df)
 
     def __iadd__(self, obj):
-        model = Sequential(verbose=self.verbose)
+        model = Model(verbose=self.verbose)
         model.add(self)
         model.add(obj)
         return model
 
+    def __repr__(self):
+        if self.input is None and self.output is None:
+            return f"{self.name}"
+        elif self.input is not None and self.output is not None:
+            return f"{self.name}: {self.input} -> {self.output}"
+        elif self.output is None:
+            return f"{self.name}: {self.input} -> {self.input}"
+        return f"{self.name}"
+
     def save(self, filename):
         import dill
-
         with open(filename, "wb") as f:
             dill.dump(self, f)
 

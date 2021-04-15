@@ -5,9 +5,9 @@ from tqdm.contrib import tmap
 
 def input_series(func):
     def wrapper(*args, **kwargs):
-        # if args[0].parallel and not isinstance(args[1], pd.Series):
-        #     args = list(args)
-        #     args[1] = pd.Series(args[1])
+        if args[0].parallel and not isinstance(args[1], pd.Series):
+            args = list(args)
+            args[1] = pd.Series(args[1])
         return func(*args, **kwargs)
     return wrapper
 
