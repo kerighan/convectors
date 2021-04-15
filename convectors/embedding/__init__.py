@@ -203,6 +203,7 @@ class OneHot(Layer):
         self.to_categorical = to_categorical
         self.class2id = {}
         self.multilabel = False
+        self.decode_mode = False
 
     def fit(self, series, y=None):
         from collections import Counter
@@ -215,30 +216,43 @@ class OneHot(Layer):
             self.multilabel = False
 
         self.class2id = {w: i for i, (w, _) in enumerate(tf.most_common())}
+        self.id2class = {i: w for w, i in self.class2id.items()}
+        self.n_classes = len(self.class2id)
 
     def process_series(self, series):
-        N = len(series)
-        n_classes = len(self.class2id)
-        if not self.multilabel:
-            if self.to_categorical:
-                X = np.zeros((N, n_classes), dtype=np.bool_)
-                for i, class_ in enumerate(series):
-                    X[i, self.class2id[class_]] = 1
-            else:
-                X = np.zeros((N,), dtype=np.uint64)
-                for i, class_ in enumerate(series):
-                    X[i] = self.class2id[class_]
-        else:
-            if self.to_categorical:
-                X = np.zeros((N, n_classes), dtype=np.bool_)
-                for i, classes in enumerate(series):
-                    for class_ in classes:
+        if not self.decode_mode:
+            N = len(series)
+            n_classes = len(self.class2id)
+            if not self.multilabel:
+                if self.to_categorical:
+                    X = np.zeros((N, n_classes), dtype=np.bool_)
+                    for i, class_ in enumerate(series):
                         X[i, self.class2id[class_]] = 1
+                else:
+                    X = np.zeros((N,), dtype=np.uint64)
+                    for i, class_ in enumerate(series):
+                        X[i] = self.class2id[class_]
             else:
-                X = []
-                for i, classes in enumerate(series):
-                    tmp = []
-                    for class_ in classes:
-                        tmp.append(self.class2id[class_])
-                    X.append(tmp)
+                if self.to_categorical:
+                    X = np.zeros((N, n_classes), dtype=np.bool_)
+                    for i, classes in enumerate(series):
+                        for class_ in classes:
+                            X[i, self.class2id[class_]] = 1
+                else:
+                    X = []
+                    for i, classes in enumerate(series):
+                        tmp = []
+                        for class_ in classes:
+                            tmp.append(self.class2id[class_])
+                        X.append(tmp)
+        else:
+            if not self.multilabel:
+                X = np.argmax(series, axis=1)
+                X = [self.id2class[c] for c in X]
         return X
+
+    def get_decoder(self):
+        from copy import deepcopy
+        obj = deepcopy(self)
+        obj.decode_mode = True
+        return obj
