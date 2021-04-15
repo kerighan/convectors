@@ -1,6 +1,6 @@
 from convectors.layers import Tokenize, Snowball, TfIdf, SVD, Keras, OneHot
 from sklearn.datasets import fetch_20newsgroups
-from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.models import Sequential
 
 # load data
