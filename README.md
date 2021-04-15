@@ -1,3 +1,15 @@
+Convectors, a library to easily build end-to-end NLP pipelines
+==========
+
+Inspired by the Keras syntax, Convectors allows you to build NLP pipelines by adding different processing Layers.
+Fully compatible with pandas, it can either process list or pandas series on the fly, or apply processing to a whole DataFrame by using columns as inputs and outputs.
+
+Simple classification example
+=====
+
+In this basic example, we create an NLP pipeline consisting of: tokenizer, Snowball stemmer, TfIdf vectorizer, SVD and a linear SVM classifier.
+
+```python
 from convectors.layers import Tokenize, Snowball, TfIdf, SVD, SVM
 from sklearn.datasets import fetch_20newsgroups
 
@@ -22,3 +34,7 @@ y_true = testing_set.target
 
 # compute accuracy
 print((y_true == y_pred).mean())
+
+# persist model for future usage
+nlp.save("model.p")
+```
