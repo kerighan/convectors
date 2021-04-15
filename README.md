@@ -4,6 +4,11 @@ Convectors: build end-to-end NLP pipelines
 Inspired by the Keras syntax, Convectors allows you to build NLP pipelines by adding different processing Layers.
 Fully compatible with pandas, it can either process list or pandas series on the fly, or apply processing to a whole DataFrame by using columns as inputs and outputs.
 
+
+```
+pip install convectors
+```
+
 Simple classification example
 =====
 
