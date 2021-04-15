@@ -7,5 +7,6 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         "numpy", "scikit-learn", "scipy",
-        "tqdm", "pandas", "dill"]
+        "tqdm", "pandas", "dill"
+    ]
 )
