@@ -34,7 +34,6 @@ class TfIdf(Layer):
 
     def fit(self, series):
         self.vectorizer.fit(series)
-        self.trained = True
 
     def process_series(self, series):
         res = self.vectorizer.transform(series)
@@ -74,7 +73,6 @@ class Count(Layer):
 
     def fit(self, series):
         self.vectorizer.fit(series)
-        self.trained = True
 
     def process_series(self, series):
         res = self.vectorizer.transform(series)
@@ -186,3 +184,61 @@ class Embedding(Layer):
         if isinstance(series, pd.Series):
             return pd.Series(doc_ids, index=series.index)
         return doc_ids
+
+
+class OneHot(Layer):
+    parallel = False
+    trainable = True
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        to_categorical=False,
+        verbose=True
+    ):
+        super(OneHot, self).__init__(input, output, name, verbose, False)
+        self.to_categorical = to_categorical
+        self.class2id = {}
+        self.multilabel = False
+
+    def fit(self, series):
+        from collections import Counter
+        import itertools
+        if isinstance(series[0], list):
+            tf = Counter(itertools.chain(*series))
+            self.multilabel = True
+        else:
+            tf = Counter(series)
+            self.multilabel = False
+
+        self.class2id = {w: i for i, (w, _) in enumerate(tf.most_common())}
+
+    def process_series(self, series):
+        N = len(series)
+        n_classes = len(self.class2id)
+        if not self.multilabel:
+            if self.to_categorical:
+                X = np.zeros((N, n_classes), dtype=np.bool_)
+                for i, class_ in enumerate(series):
+                    X[i, self.class2id[class_]] = 1
+            else:
+                X = np.zeros((N,), dtype=np.uint64)
+                for i, class_ in enumerate(series):
+                    X[i] = self.class2id[class_]
+        else:
+            if self.to_categorical:
+                X = np.zeros((N, n_classes), dtype=np.bool_)
+                for i, classes in enumerate(series):
+                    for class_ in classes:
+                        X[i, self.class2id[class_]] = 1
+            else:
+                X = []
+                for i, classes in enumerate(series):
+                    tmp = []
+                    for class_ in classes:
+                        tmp.append(self.class2id[class_])
+                    X.append(tmp)
+        return X

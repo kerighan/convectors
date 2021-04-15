@@ -105,6 +105,7 @@ class Layer:
         if self.trainable and not self.trained:
             for _ in tqdm(range(1), desc=f"Fitting {self.name}"):
                 self.fit(series)
+                self.trained = True
         if self.document_wise:
             if self.parallel and self.run_parallel:
                 return series.parallel_apply(self.process_doc, name=self.name)
