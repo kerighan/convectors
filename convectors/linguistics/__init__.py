@@ -91,7 +91,7 @@ class Phrase(Layer):
         self,
         input=None,
         output=None,
-        min_count=3,
+        min_count=5,
         threshold=3,
         name=None,
         verbose=True,

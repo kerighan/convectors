@@ -4,11 +4,34 @@ import numpy as np
 import pandas as pd
 
 
-class TfIdf(Layer):
+class VectorizerLayer(Layer):
     parallel = False
     trainable = True
     document_wise = False
 
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        **kwargs,
+    ):
+        super(VectorizerLayer, self).__init__(
+            input, output, name, verbose, False)
+
+    def fit(self, series, y=None):
+        self.vectorizer.fit(series)
+        self.n_features = len(self.vectorizer.get_feature_names())
+
+    def process_series(self, series):
+        res = self.vectorizer.transform(series)
+        if self.sparse:
+            return res
+        return np.array(res.todense())
+
+
+class TfIdf(VectorizerLayer):
     def __init__(
         self,
         input=None,
@@ -22,7 +45,7 @@ class TfIdf(Layer):
         **kwargs,
     ):
         from sklearn.feature_extraction.text import TfidfVectorizer
-        super(TfIdf, self).__init__(input, output, name, verbose, False)
+        super(TfIdf, self).__init__(input, output, name, verbose)
 
         self.sparse = sparse
         self.vectorizer = TfidfVectorizer(
@@ -33,21 +56,8 @@ class TfIdf(Layer):
             token_pattern=None,
             **kwargs)
 
-    def fit(self, series, y=None):
-        self.vectorizer.fit(series)
 
-    def process_series(self, series):
-        res = self.vectorizer.transform(series)
-        if self.sparse:
-            return res
-        return np.array(res.todense())
-
-
-class Count(Layer):
-    parallel = False
-    trainable = True
-    document_wise = False
-
+class Count(VectorizerLayer):
     def __init__(
         self,
         input=None,
@@ -61,7 +71,7 @@ class Count(Layer):
         **kwargs,
     ):
         from sklearn.feature_extraction.text import CountVectorizer
-        super(Count, self).__init__(input, output, name, verbose, False)
+        super(Count, self).__init__(input, output, name, verbose)
 
         self.sparse = sparse
         self.vectorizer = CountVectorizer(
@@ -71,15 +81,6 @@ class Count(Layer):
             min_df=min_df, max_df=max_df,
             token_pattern=None,
             **kwargs)
-
-    def fit(self, series, y=None):
-        self.vectorizer.fit(series)
-
-    def process_series(self, series):
-        res = self.vectorizer.transform(series)
-        if self.sparse:
-            return res
-        return np.array(res.todense())
 
 
 class Embedding(Layer):
@@ -218,15 +219,15 @@ class OneHot(Layer):
 
         self.class2id = {w: i for i, (w, _) in enumerate(tf.most_common())}
         self.id2class = {i: w for w, i in self.class2id.items()}
-        self.n_classes = len(self.class2id)
+        self.n_features = len(self.class2id)
 
     def process_series(self, series):
         if not self.decode_mode:
             N = len(series)
-            n_classes = len(self.class2id)
+            n_features = len(self.class2id)
             if not self.multilabel:
                 if self.to_categorical:
-                    X = np.zeros((N, n_classes), dtype=np.bool_)
+                    X = np.zeros((N, n_features), dtype=np.bool_)
                     for i, class_ in enumerate(series):
                         X[i, self.class2id[class_]] = 1
                 else:
@@ -235,7 +236,7 @@ class OneHot(Layer):
                         X[i] = self.class2id[class_]
             else:
                 if self.to_categorical:
-                    X = np.zeros((N, n_classes), dtype=np.bool_)
+                    X = np.zeros((N, n_features), dtype=np.bool_)
                     for i, classes in enumerate(series):
                         for class_ in classes:
                             X[i, self.class2id[class_]] = 1

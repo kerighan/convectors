@@ -38,6 +38,12 @@ class Model:
             layer.trained = False
         self.__call__(df)
 
+    def __getitem__(self, key):
+        for layer in self.layers:
+            if layer.name == key:
+                return layer
+        raise KeyError(f"Layer {key} not found")
+
     def __call__(self, df, y=None):
         if not isinstance(df, pd.DataFrame):
             return self.apply(df, y=y)

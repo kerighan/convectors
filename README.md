@@ -55,8 +55,8 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
 # load data
-training_set = fetch_20newsgroups(subset='train')
-testing_set = fetch_20newsgroups(subset='test')
+training_set = fetch_20newsgroups(subset="train")
+testing_set = fetch_20newsgroups(subset="test")
 
 # create one hot encoder for categorical data
 one_hot = OneHot(to_categorical=True)
@@ -74,7 +74,7 @@ X = nlp(training_set.data)
 model = Sequential()
 model.add(Dense(100, activation="tanh"))
 model.add(Dense(100, activation="tanh"))
-model.add(Dense(one_hot.n_classes, activation="softmax"))
+model.add(Dense(one_hot.n_features, activation="softmax"))
 model.compile("adam", "categorical_crossentropy", metrics=["accuracy"])
 model.fit(X, y, epochs=6, batch_size=200, validation_split=.1)
 
