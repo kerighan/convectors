@@ -19,6 +19,7 @@ class VectorizerLayer(Layer):
     ):
         super(VectorizerLayer, self).__init__(
             input, output, name, verbose, False)
+        self.n_features = None
 
     def fit(self, series, y=None):
         self.vectorizer.fit(series)
