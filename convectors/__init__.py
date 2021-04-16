@@ -161,7 +161,7 @@ class Layer:
 # Functions
 # =============================================================================
 
-def load_model(filename):
+def load_model(filename, custom_objects=None):
     import dill
     with open(filename, "rb") as f:
         obj = dill.load(f)
@@ -174,9 +174,11 @@ def load_model(filename):
             from tensorflow.keras.models import Sequential
             from tensorflow.keras.models import Model as KModel
             try:
-                model = KModel.from_config(layer.config)
+                model = KModel.from_config(
+                    layer.config, custom_objects=custom_objects)
             except KeyError:
-                model = Sequential.from_config(layer.config)
+                model = Sequential.from_config(
+                    layer.config, custom_objects=custom_objects)
             model.set_weights(layer.weights)
             del layer.weights
             del layer.config
@@ -185,9 +187,11 @@ def load_model(filename):
         from tensorflow.keras.models import Sequential
         from tensorflow.keras.models import Model as KModel
         try:
-            model = KModel.from_config(obj.config)
+            model = KModel.from_config(
+                obj.config, custom_objects=custom_objects)
         except KeyError:
-            model = Sequential.from_config(obj.config)
+            model = Sequential.from_config(
+                obj.config, custom_objects=custom_objects)
         model.set_weights(obj.weights)
         del obj.weights
         del obj.config
