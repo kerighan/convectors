@@ -19,8 +19,8 @@ from convectors.layers import Tokenize, Snowball, TfIdf, SVD, SVM
 from sklearn.datasets import fetch_20newsgroups
 
 # load data
-training_set = fetch_20newsgroups(subset='train')
-testing_set = fetch_20newsgroups(subset='test')
+training_set = fetch_20newsgroups(subset="train")
+testing_set = fetch_20newsgroups(subset="test")
 
 # create encoder model
 nlp = Tokenize(stopwords=["en"])
