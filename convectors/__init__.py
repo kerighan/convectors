@@ -64,6 +64,14 @@ class Model:
     def save(self, filename):
         import dill
 
+        # check if model has keras layer
+        for layer in self.layers:
+            if layer.__class__.__name__ != "Keras":
+                continue
+            layer.weights = layer.model.get_weights()
+            layer.config = layer.model.get_config()
+            del layer.model
+
         with open(filename, "wb") as f:
             dill.dump(self, f)
 
@@ -151,6 +159,33 @@ def load_model(filename):
     import dill
     with open(filename, "rb") as f:
         obj = dill.load(f)
+
+    if isinstance(obj, Model):
+        # check if model has keras layer
+        for layer in obj.layers:
+            if layer.__class__.__name__ != "Keras":
+                continue
+            from tensorflow.keras.models import Sequential
+            from tensorflow.keras.models import Model as KModel
+            try:
+                model = KModel.from_config(layer.config)
+            except KeyError:
+                model = Sequential.from_config(layer.config)
+            model.set_weights(layer.weights)
+            del layer.weights
+            del layer.config
+            layer.model = model
+    elif obj.__class__.__name__ == "Keras":
+        from tensorflow.keras.models import Sequential
+        from tensorflow.keras.models import Model as KModel
+        try:
+            model = KModel.from_config(obj.config)
+        except KeyError:
+            model = Sequential.from_config(obj.config)
+        model.set_weights(obj.weights)
+        del obj.weights
+        del obj.config
+        obj.model = model
     return obj
 
 

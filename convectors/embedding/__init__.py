@@ -1,4 +1,5 @@
 from .. import Layer
+from ..utils import identity
 import numpy as np
 import pandas as pd
 
@@ -25,8 +26,8 @@ class TfIdf(Layer):
 
         self.sparse = sparse
         self.vectorizer = TfidfVectorizer(
-            preprocessor=lambda x: x,
-            tokenizer=lambda x: x,
+            preprocessor=identity,
+            tokenizer=identity,
             max_features=max_features,
             min_df=min_df, max_df=max_df,
             token_pattern=None,
@@ -64,8 +65,8 @@ class Count(Layer):
 
         self.sparse = sparse
         self.vectorizer = CountVectorizer(
-            preprocessor=lambda x: x,
-            tokenizer=lambda x: x,
+            preprocessor=identity,
+            tokenizer=identity,
             max_features=max_features,
             min_df=min_df, max_df=max_df,
             token_pattern=None,
@@ -247,8 +248,14 @@ class OneHot(Layer):
                         X.append(tmp)
         else:
             if not self.multilabel:
-                X = np.argmax(series, axis=1)
-                X = [self.id2class[c] for c in X]
+                if len(series.shape) == 2:
+                    X = np.argmax(series, axis=1)
+                    X = [self.id2class[c] for c in X]
+                elif len(series.shape) == 1:
+                    X = [self.id2class[c] for c in series]
+                else:
+                    raise ValueError(
+                        f"Layer {self.name} got an input of wrong dimension")
         return X
 
     def get_decoder(self):

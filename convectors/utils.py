@@ -3,6 +3,10 @@ from tqdm.contrib.concurrent import process_map
 from tqdm.contrib import tmap
 
 
+def identity(x):
+    return x
+
+
 def input_series(func):
     def wrapper(*args, **kwargs):
         if args[0].parallel and not isinstance(args[1], pd.Series):
