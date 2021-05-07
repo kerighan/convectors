@@ -119,40 +119,43 @@ class Embedding(Layer):
             raise ValueError("padding argument should be 'pre' or 'post'")
         self.unk_token = unk_token
         self.mask_token = mask_token
-        self.word2id = word2id
-        if self.word2id is not None:
+        if word2id is not None:
+            self.word2id = word2id
             self.unk_token = "<UNK>" in self.word2id
             self.mask_token = "<MASK>" in self.word2id
             self.n_features = len(self.word2id)
         else:
-            self.word2id = {}
+            self.word2id = None
 
     def fit(self, series, y=None):
-        if self.word2id is None:
-            from collections import Counter
-            import itertools
+        if self.word2id is not None:
+            return
 
-            tf = Counter(itertools.chain(*series))
-            n_words = 1
-            threshold = (
-                self.max_features + 1
-                - self.unk_token - self.mask_token)
-            for word, freq in tf.most_common():
-                if freq < self.min_tf:
-                    break
-                if n_words >= threshold:
-                    break
-                self.word2id[word] = n_words
-                n_words += 1
+        from collections import Counter
+        import itertools
 
-            # add special token
-            if self.unk_token and "<UNK>" not in self.word2id:
-                self.word2id["<UNK>"] = n_words
-                n_words += 1
-            if self.mask_token and "<MASK>" not in self.word2id:
-                self.word2id["<MASK>"] = n_words
-                n_words += 1
-            self.n_features = len(self.word2id)
+        self.word2id = {}
+        tf = Counter(itertools.chain(*series))
+        n_words = 1
+        threshold = (
+            self.max_features + 1
+            - self.unk_token - self.mask_token)
+        for word, freq in tf.most_common():
+            if freq < self.min_tf:
+                break
+            if n_words >= threshold:
+                break
+            self.word2id[word] = n_words
+            n_words += 1
+
+        # add special token
+        if self.unk_token and "<UNK>" not in self.word2id:
+            self.word2id["<UNK>"] = n_words
+            n_words += 1
+        if self.mask_token and "<MASK>" not in self.word2id:
+            self.word2id["<MASK>"] = n_words
+            n_words += 1
+        self.n_features = len(self.word2id)
 
     def process_series(self, series):
         if self.unk_token:
