@@ -117,7 +117,6 @@ class Embedding(Layer):
             self.padding = False
         else:
             raise ValueError("padding argument should be 'pre' or 'post'")
-        self.word2id = {}
         self.unk_token = unk_token
         self.mask_token = mask_token
         self.word2id = word2id
@@ -125,6 +124,8 @@ class Embedding(Layer):
             self.unk_token = "<UNK>" in self.word2id
             self.mask_token = "<MASK>" in self.word2id
             self.n_features = len(self.word2id)
+        else:
+            self.word2id = {}
 
     def fit(self, series, y=None):
         if self.word2id is None:
