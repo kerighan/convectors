@@ -7,7 +7,7 @@ README = (HERE / "README.md").read_text()
 
 setuptools.setup(
     name="convectors",
-    version="0.0.2",
+    version="0.0.3",
     author="Maixent Chenebaux",
     description=("End-to-end NLP package for seamless integration of "
                  "Pandas Series, DataFrame and Keras model"),
