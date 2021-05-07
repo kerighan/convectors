@@ -157,6 +157,62 @@ class Layer:
             dill.dump(self, f)
 
 
+class WordVectors:
+    def __init__(
+        self,
+        word2id=None,
+        id2word=None,
+        weights=None,
+        model=None
+    ):
+        if model is not None:
+            from tqdm import tqdm
+            self.id2word = {}
+            self.word2id = {}
+            weights = [np.zeros_like(model.wv[0])]
+            for i, word in tqdm(
+                    enumerate(model.wv.key_to_index, 1),
+                    total=len(model.wv)):
+                vector = model.wv[word]
+                weights.append(vector)
+                self.word2id[word] = i
+                self.id2word[i] = word
+            self.weights = np.vstack(weights)
+
+    def normalize(self, norm="l2"):
+        if norm == "l1":
+            self.weights /= np.sum(self.weights, axis=1)[:, None]
+        elif norm == "l2":
+            self.weights /= (
+                np.linalg.norm(self.weights, axis=1)[:, None].clip(1e-6, None)
+            )
+
+    def save(self, filename):
+        import dill
+        with open(filename, "wb") as f:
+            dill.dump(self, f)
+
+    def __iter__(self):
+        for key in self.word2id:
+            yield key
+
+    def __len__(self):
+        return self.num_words
+
+    def __contains__(self, key):
+        return key in self.word2id
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            if 0 <= key < self.num_words:
+                return self.weights[key, :]
+            else:
+                raise IndexError(key)
+        if key not in self.word2id:
+            raise KeyError(key)
+        return self.weights[self.word2id[key]]
+
+
 # =============================================================================
 # Functions
 # =============================================================================

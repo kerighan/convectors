@@ -127,6 +127,29 @@ class Phrase(Layer):
         return words
 
 
+class Sub(Layer):
+    parallel = True
+    trainable = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        regex="url",
+        replacement=" ",
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        from .utils import name2regex
+        super(Sub, self).__init__(input, output, name, verbose, parallel)
+        self.regex = re.compile(name2regex.get(regex, regex))
+        self.replacement = replacement
+
+    def process_doc(self, doc):
+        return re.sub(self.regex, self.replacement, doc)
+
+
 # =============================================================================
 # Functions
 # =============================================================================
