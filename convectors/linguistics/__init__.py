@@ -105,7 +105,7 @@ class Phrase(Layer):
         self.pmi = set(pmi(
             series, window_size=1,
             minimum=self.threshold,
-            threshold=self.min_count).keys())
+            min_count=self.min_count).keys())
 
     def process_doc(self, text):
         if len(text) == 0:
@@ -188,7 +188,7 @@ def tokenize(
     return words
 
 
-def pmi(series, window_size=3, threshold=2, minimum=0.6):
+def pmi(series, window_size=3, min_count=2, minimum=0.6, normalize=False):
     from collections import Counter, defaultdict
     import itertools
     import math
@@ -214,14 +214,17 @@ def pmi(series, window_size=3, threshold=2, minimum=0.6):
 
     npmi_ = {}
     for couple, count in cooc.items():
-        if count < threshold:
+        if count < min_count:
             continue
         x, y = couple
         p_x = freq[x]
         p_y = freq[y]
         p_xy = count / M
         prod = p_x * p_y / (N*N)
-        npmi_value = math.log(p_xy / prod)
+        if normalize:
+            npmi_value = math.log(prod) / math.log(p_xy) - 1
+        else:
+            npmi_value = math.log(p_xy / prod)
         if npmi_value > minimum:
             npmi_[couple] = npmi_value
     return npmi_
