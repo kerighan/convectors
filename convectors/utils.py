@@ -1,6 +1,6 @@
 import pandas as pd
-from tqdm.contrib.concurrent import process_map
 from tqdm.contrib import tmap
+from tqdm.contrib.concurrent import process_map
 
 
 def identity(x):

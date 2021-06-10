@@ -1,5 +1,6 @@
-from .. import Layer
 import random
+
+from .. import Layer
 
 
 class Mask(Layer):
@@ -14,8 +15,7 @@ class Mask(Layer):
         p=.1,
         name=None,
         verbose=True,
-        parallel=False,
-        **kwargs,
+        parallel=False
     ):
         super(Mask, self).__init__(input, output, name, verbose, parallel)
         self.p = p
