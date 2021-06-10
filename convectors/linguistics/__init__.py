@@ -167,8 +167,7 @@ class Contract(Layer):
         super(Contract, self).__init__(input, output, name, verbose, parallel)
 
     def process_doc(self, doc):
-        import itertools
-        return ''.join(c[0] for c in itertools.groupby(doc))
+        return re.sub(r"(.)\1{2,}", r"\1", doc)
 
 # =============================================================================
 # Functions
