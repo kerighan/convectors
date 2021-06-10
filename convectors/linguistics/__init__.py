@@ -1,8 +1,6 @@
 import re
 from functools import partial
 
-from numpy import isin
-
 from .. import Layer
 
 # =============================================================================
@@ -112,7 +110,7 @@ class Phrase(Layer):
         self.min_count = min_count
         self.threshold = threshold
 
-    def fit(self, series, y=None):
+    def fit(self, series, _=None):
         self.pmi = set(pmi(
             series, window_size=1,
             minimum=self.threshold,
