@@ -1,9 +1,10 @@
 import setuptools
-import pathlib
+import os
 
 # The directory containing this file
-HERE = pathlib.Path(__file__).parent
-README = (HERE / "README.md").read_text()
+README_FILENAME = os.path.join(os.path.dirname(__file__), "README.md")
+with open(README_FILENAME) as f:
+    README = f.read()
 
 setuptools.setup(
     name="convectors",
