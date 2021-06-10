@@ -1,6 +1,8 @@
 import re
 from functools import partial
 
+from numpy import isin
+
 from .. import Layer
 
 # =============================================================================
@@ -174,6 +176,8 @@ class Contract(Layer):
         super(Contract, self).__init__(input, output, name, verbose, parallel)
 
     def process_doc(self, doc):
+        if not isinstance(doc, str):
+            doc = str(doc)
         return re.sub(r"(.)\1{2,}", r"\1", doc)
 
 # =============================================================================
