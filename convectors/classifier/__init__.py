@@ -119,6 +119,25 @@ class Keras(Layer):
         assert model is not None
         self.model = model
 
+    def unload(self):
+        self.weights = self.model.get_weights()
+        self.config = self.model.get_config()
+        del self.model
+
+    def reload(self, custom_objects=None, **_):
+        from tensorflow.keras.models import Model as KModel
+        from tensorflow.keras.models import Sequential
+        try:
+            model = KModel.from_config(
+                self.config, custom_objects=custom_objects)
+        except KeyError:
+            model = Sequential.from_config(
+                self.config, custom_objects=custom_objects)
+        model.set_weights(self.weights)
+        del self.weights
+        del self.config
+        self.model = model
+
     def process_series(self, series):
         from scipy.sparse import issparse
         X = to_matrix(series)

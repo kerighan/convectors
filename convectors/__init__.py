@@ -73,11 +73,8 @@ class Model:
 
         # check if model has keras layer
         for layer in self.layers:
-            if layer.__class__.__name__ != "Keras":
-                continue
-            layer.weights = layer.model.get_weights()
-            layer.config = layer.model.get_config()
-            del layer.model
+            if layer.need_reload:
+                layer.unload()
 
         with open(filename, "wb") as f:
             dill.dump(self, f)
@@ -85,6 +82,7 @@ class Model:
 
 class Layer:
     document_wise = True
+    need_reload = False
 
     def __init__(
         self,
@@ -154,6 +152,8 @@ class Layer:
 
     def save(self, filename):
         import dill
+        if self.need_reload:
+            self.unload()
         with open(filename, "wb") as f:
             dill.dump(self, f)
 
@@ -215,41 +215,20 @@ class WordVectors:
 # Functions
 # =============================================================================
 
-def load_model(filename, custom_objects=None):
+def load_model(filename, **kwargs):
     import dill
     with open(filename, "rb") as f:
         obj = dill.load(f)
 
+    # object is model
     if isinstance(obj, Model):
-        # check if model has keras layer
         for layer in obj.layers:
-            if layer.__class__.__name__ != "Keras":
-                continue
-            from tensorflow.keras.models import Model as KModel
-            from tensorflow.keras.models import Sequential
-            try:
-                model = KModel.from_config(
-                    layer.config, custom_objects=custom_objects)
-            except KeyError:
-                model = Sequential.from_config(
-                    layer.config, custom_objects=custom_objects)
-            model.set_weights(layer.weights)
-            del layer.weights
-            del layer.config
-            layer.model = model
-    elif obj.__class__.__name__ == "Keras":
-        from tensorflow.keras.models import Model as KModel
-        from tensorflow.keras.models import Sequential
-        try:
-            model = KModel.from_config(
-                obj.config, custom_objects=custom_objects)
-        except KeyError:
-            model = Sequential.from_config(
-                obj.config, custom_objects=custom_objects)
-        model.set_weights(obj.weights)
-        del obj.weights
-        del obj.config
-        obj.model = model
+            # check if layer needs reloading
+            if layer.need_reload:
+                layer.reload(**kwargs)
+    # object is layer
+    elif obj.need_reload:
+        obj.reload(**kwargs)
     return obj
 
 

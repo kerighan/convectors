@@ -51,6 +51,7 @@ class Tokenize(Layer):
 class Snowball(Layer):
     parallel = True
     trainable = False
+    need_reload = True
 
     def __init__(
         self,
@@ -63,11 +64,17 @@ class Snowball(Layer):
         parallel=False
     ):
         super(Snowball, self).__init__(input, output, name, verbose, parallel)
-        from nltk.stem.snowball import SnowballStemmer
         self.lang = lang
-        self.stemmer = SnowballStemmer(lang)
+        self.reload()
         self.memoize = memoize
         self.word2stem = {}
+
+    def unload(self):
+        del self.stemmer
+
+    def reload(self, **_):
+        from nltk.stem.snowball import SnowballStemmer
+        self.stemmer = SnowballStemmer(self.lang)
 
     def process_doc(self, text):
         if self.memoize:
