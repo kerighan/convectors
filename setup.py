@@ -1,5 +1,6 @@
-import setuptools
 import os
+
+import setuptools
 
 # The directory containing this file
 README_FILENAME = os.path.join(os.path.dirname(__file__), "README.md")
@@ -8,7 +9,7 @@ with open(README_FILENAME) as f:
 
 setuptools.setup(
     name="convectors",
-    version="0.0.3",
+    version="0.0.4",
     author="Maixent Chenebaux",
     description=("End-to-end NLP package for seamless integration of "
                  "Pandas Series, DataFrame and Keras model"),
