@@ -51,7 +51,6 @@ class Tokenize(Layer):
 class Snowball(Layer):
     parallel = True
     trainable = False
-    need_reload = True
 
     def __init__(
         self,

@@ -13,6 +13,14 @@ class Model:
         self.layers = []
         self.layer2num = {}
 
+    def unload(self):
+        for layer in self.layers:
+            layer.unload()
+
+    def reload(self, **kwargs):
+        for layer in self.layers:
+            layer.reload(**kwargs)
+
     def add(self, layer):
         layer.verbose = self.verbose
         layer_name = layer.name
@@ -70,19 +78,13 @@ class Model:
 
     def save(self, filename):
         import dill
-
-        # check if model has keras layer
-        for layer in self.layers:
-            if layer.need_reload:
-                layer.unload()
-
+        self.unload()
         with open(filename, "wb") as f:
             dill.dump(self, f)
 
 
 class Layer:
     document_wise = True
-    need_reload = False
 
     def __init__(
         self,
@@ -100,6 +102,12 @@ class Layer:
         self.name = name
         self.trained = False
         self.run_parallel = parallel
+
+    def unload(self):
+        pass
+
+    def reload(self, **_):
+        pass
 
     def process(self, df, y=None):
         if self.input is None:
@@ -152,8 +160,7 @@ class Layer:
 
     def save(self, filename):
         import dill
-        if self.need_reload:
-            self.unload()
+        self.unload()
         with open(filename, "wb") as f:
             dill.dump(self, f)
 
@@ -219,16 +226,7 @@ def load_model(filename, **kwargs):
     import dill
     with open(filename, "rb") as f:
         obj = dill.load(f)
-
-    # object is model
-    if isinstance(obj, Model):
-        for layer in obj.layers:
-            # check if layer needs reloading
-            if layer.need_reload:
-                layer.reload(**kwargs)
-    # object is layer
-    elif obj.need_reload:
-        obj.reload(**kwargs)
+    obj.reload(**kwargs)
     return obj
 
 

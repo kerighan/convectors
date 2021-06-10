@@ -111,8 +111,7 @@ class Keras(Layer):
         output=None,
         model=None,
         name=None,
-        verbose=True,
-        **kwargs
+        verbose=True
     ):
         super(Keras, self).__init__(
             input, output, name, verbose, False)
