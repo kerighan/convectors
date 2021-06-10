@@ -1,11 +1,12 @@
-from .. import Layer
-from functools import partial
 import re
+from functools import partial
 
+from .. import Layer
 
 # =============================================================================
 # Layers
 # =============================================================================
+
 
 class Tokenize(Layer):
     parallel = True
@@ -63,6 +64,7 @@ class Snowball(Layer):
     ):
         super(Snowball, self).__init__(input, output, name, verbose, parallel)
         from nltk.stem.snowball import SnowballStemmer
+        self.lang = lang
         self.stemmer = SnowballStemmer(lang)
         self.memoize = memoize
         self.word2stem = {}
@@ -150,9 +152,28 @@ class Sub(Layer):
         return re.sub(self.regex, self.replacement, doc)
 
 
+class Contract(Layer):
+    parallel = True
+    trainable = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super(Contract, self).__init__(input, output, name, verbose, parallel)
+
+    def process_doc(self, doc):
+        import itertools
+        return ''.join(c[0] for c in itertools.groupby(doc))
+
 # =============================================================================
 # Functions
 # =============================================================================
+
 
 def tokenize(
     text,
@@ -189,9 +210,9 @@ def tokenize(
 
 
 def pmi(series, window_size=3, min_count=2, minimum=0.6, normalize=False):
-    from collections import Counter, defaultdict
     import itertools
     import math
+    from collections import Counter, defaultdict
 
     # compute freq
     freq = Counter(itertools.chain(*series))

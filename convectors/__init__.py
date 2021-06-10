@@ -1,8 +1,9 @@
-import pandas as pd
 import numpy as np
-from .utils import input_series
+import pandas as pd
 from scipy.sparse import issparse
 from tqdm import tqdm
+
+from .utils import input_series
 
 
 class Model:
@@ -160,9 +161,6 @@ class Layer:
 class WordVectors:
     def __init__(
         self,
-        word2id=None,
-        id2word=None,
-        weights=None,
         model=None
     ):
         if model is not None:
@@ -227,8 +225,8 @@ def load_model(filename, custom_objects=None):
         for layer in obj.layers:
             if layer.__class__.__name__ != "Keras":
                 continue
-            from tensorflow.keras.models import Sequential
             from tensorflow.keras.models import Model as KModel
+            from tensorflow.keras.models import Sequential
             try:
                 model = KModel.from_config(
                     layer.config, custom_objects=custom_objects)
@@ -240,8 +238,8 @@ def load_model(filename, custom_objects=None):
             del layer.config
             layer.model = model
     elif obj.__class__.__name__ == "Keras":
-        from tensorflow.keras.models import Sequential
         from tensorflow.keras.models import Model as KModel
+        from tensorflow.keras.models import Sequential
         try:
             model = KModel.from_config(
                 obj.config, custom_objects=custom_objects)

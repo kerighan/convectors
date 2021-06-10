@@ -1,5 +1,6 @@
-from .. import Layer, to_matrix
 import numpy as np
+
+from .. import Layer, to_matrix
 
 
 class ClassifierLayer(Layer):

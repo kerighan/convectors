@@ -1,7 +1,8 @@
-from .. import Layer
-from ..utils import identity
 import numpy as np
 import pandas as pd
+
+from .. import Layer
+from ..utils import identity
 
 
 class VectorizerLayer(Layer):
@@ -131,8 +132,8 @@ class Embedding(Layer):
         if self.word2id is not None:
             return
 
-        from collections import Counter
         import itertools
+        from collections import Counter
 
         self.word2id = {}
         tf = Counter(itertools.chain(*series))
@@ -226,8 +227,8 @@ class OneHot(Layer):
         self.decode_mode = False
 
     def fit(self, series, y=None):
-        from collections import Counter
         import itertools
+        from collections import Counter
         if isinstance(series[0], list):
             tf = Counter(itertools.chain(*series))
             self.multilabel = True
