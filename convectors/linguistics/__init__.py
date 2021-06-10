@@ -71,6 +71,7 @@ class Snowball(Layer):
 
     def unload(self):
         del self.stemmer
+        self.word2stem = {}
 
     def reload(self, **_):
         from nltk.stem.snowball import SnowballStemmer
