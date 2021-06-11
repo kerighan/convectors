@@ -184,6 +184,12 @@ class WordVectors:
                 self.id2word[i] = word
             self.weights = np.vstack(weights)
 
+    def unload(self):
+        pass
+
+    def reload(self, **_):
+        pass
+
     def normalize(self, norm="l2"):
         if norm == "l1":
             self.weights /= np.sum(self.weights, axis=1)[:, None]
