@@ -33,14 +33,14 @@ class Model:
         layer.name = layer_name
         self.layers.append(layer)
 
-    def apply(self, series, y=None):
+    def apply(self, series, *args, y=None):
         for layer in self.layers:
-            series = layer.apply(series, y=y)
+            series = layer.apply(series, *args, y=y)
         return series
 
-    def process(self, df, y=None):
+    def process(self, df, *args, y=None):
         for layer in self.layers:
-            layer.process(df, y=y)
+            layer.process(df, *args, y=y)
 
     def fit(self, df):
         for layer in self.layers:
@@ -53,11 +53,11 @@ class Model:
                 return layer
         raise KeyError(f"Layer {key} not found")
 
-    def __call__(self, df, y=None):
+    def __call__(self, df, *args, y=None):
         if not isinstance(df, pd.DataFrame):
-            return self.apply(df, y=y)
+            return self.apply(df, *args, y=y)
         else:
-            self.process(df, y=y)
+            self.process(df, *args, y=y)
 
     def __iadd__(self, layer):
         self.add(layer)
@@ -85,6 +85,7 @@ class Model:
 
 class Layer:
     document_wise = True
+    multi = False
 
     def __init__(
         self,
@@ -122,26 +123,33 @@ class Layer:
             df[self.output] = res
 
     @input_series
-    def apply(self, series, y=None):
-        if self.trainable and not self.trained:
-            for _ in tqdm(range(1), desc=f"{self.name} (fitting)"):
-                self.fit(series, y=y)
-                self.trained = True
-        if self.document_wise:
-            if self.parallel and self.run_parallel:
-                return series.parallel_apply(self.process_doc, name=self.name)
+    def apply(self, series, *args, y=None):
+        if self.multi:
+            return self.process_series(series, *args)
+        else:
+            # if layer must be trained
+            if self.trainable and not self.trained:
+                for _ in tqdm(range(1), desc=f"{self.name} (fitting)"):
+                    self.fit(series, y=y)
+                    self.trained = True
+            # differing apply procedure depending on layer's logic
+            if self.document_wise:
+                if self.parallel and self.run_parallel:
+                    return series.parallel_apply(self.process_doc,
+                                                 name=self.name)
+                else:
+                    return series.progress_apply(self.process_doc,
+                                                 name=self.name)
             else:
-                return series.progress_apply(self.process_doc, name=self.name)
-        else:
-            for _ in tqdm(range(1), desc=self.name):
-                res = self.process_series(series)
-            return res
+                for _ in tqdm(range(1), desc=self.name):
+                    res = self.process_series(series)
+                return res
 
-    def __call__(self, df, y=None):
+    def __call__(self, df, *args, y=None):
         if not isinstance(df, pd.DataFrame):
-            return self.apply(df, y)
+            return self.apply(df, *args, y=y)
         else:
-            self.process(df, y)
+            self.process(df, *args, y=y)
 
     def __iadd__(self, obj):
         model = Model(verbose=self.verbose)
