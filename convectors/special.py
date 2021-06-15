@@ -24,4 +24,4 @@ class HashtagSplitter(Layer):
 
         # create document processing partial function
     def process_doc(self, doc):
-        return " ".join([h for h in re.split('#([A-Z][a-z]+)', doc) if h])
+        return " ".join([h for h in re.split('([A-Z][a-z]+)', doc) if h])
