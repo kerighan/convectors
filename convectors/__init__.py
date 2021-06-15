@@ -42,10 +42,10 @@ class Model:
         for layer in self.layers:
             layer.process(df, *args, y=y)
 
-    def fit(self, df):
+    def fit(self, df, *args, y=None):
         for layer in self.layers:
             layer.trained = False
-        self.__call__(df)
+        self.__call__(df, *args, y=y)
 
     def __getitem__(self, key):
         for layer in self.layers:
