@@ -56,14 +56,20 @@ class Snowball(Layer):
         self,
         input=None,
         output=None,
-        lang="french",
+        lang="fr",
         memoize=True,
         name=None,
         verbose=True,
         parallel=False
     ):
         super(Snowball, self).__init__(input, output, name, verbose, parallel)
-        self.lang = lang
+
+        self.translate = {
+            "fr": "french",
+            "en": "english",
+            "de": "german"
+        }
+        self.lang = self.translate.get(lang, lang)
         self.reload()
         self.memoize = memoize
         self.word2stem = {}
@@ -90,6 +96,74 @@ class Snowball(Layer):
             return words
         else:
             return [self.stemmer.stem(w) for w in text]
+
+
+class StanzaStemmer(Layer):
+    parallel = True
+    trainable = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        lang="fr",
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super(StanzaStemmer, self).__init__(
+            input, output, name, verbose, parallel)
+
+        self.lang = lang
+        self.reload()
+
+    def unload(self):
+        del self.stemmer
+
+    def reload(self, **_):
+        import stanza
+        try:
+            self.stemmer = stanza.Pipeline(
+                self.lang, processors='tokenize,mwt,pos,lemma')
+        except stanza.pipeline.core.ResourcesFileNotFoundError:
+            stanza.download(self.lang)
+            self.stemmer = stanza.Pipeline(
+                self.lang, processors='tokenize,mwt,pos,lemma')
+
+    def process_doc(self, text):
+        res = self.stemmer(text)
+        return [word.lemma for sent in res.sentences for word in sent.words]
+
+
+class SpacyStemmer(Layer):
+    parallel = True
+    trainable = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        lang="fr",
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super(SpacyStemmer, self).__init__(
+            input, output, name, verbose, parallel)
+
+        self.lang = lang
+        self.reload()
+
+    def unload(self):
+        del self.stemmer
+
+    def reload(self, **_):
+        import spacy
+        self.nlp = spacy.load(f"{self.lang}_core_news_sm")
+
+    def process_doc(self, text):
+        doc = self.nlp(text)
+        return [word.lemma_ for word in doc]
 
 
 class Phrase(Layer):
@@ -189,6 +263,8 @@ def tokenize(
     strip_accents=False,
     strip_punctuation=True,
     lower=True,
+
+
 ):
     text = str(text)
     # turn lowercase
