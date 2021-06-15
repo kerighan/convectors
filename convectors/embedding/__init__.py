@@ -59,7 +59,7 @@ class TfIdf(VectorizerLayer):
             **kwargs)
 
 
-class Count(VectorizerLayer):
+class CountVectorizer(VectorizerLayer):
     def __init__(
         self,
         input=None,
@@ -72,11 +72,11 @@ class Count(VectorizerLayer):
         verbose=True,
         **kwargs,
     ):
-        from sklearn.feature_extraction.text import CountVectorizer
-        super(Count, self).__init__(input, output, name, verbose)
+        from sklearn.feature_extraction.text import CountVectorizer as CV
+        super(CountVectorizer, self).__init__(input, output, name, verbose)
 
         self.sparse = sparse
-        self.vectorizer = CountVectorizer(
+        self.vectorizer = CV(
             preprocessor=identity,
             tokenizer=identity,
             max_features=max_features,
@@ -283,3 +283,48 @@ class OneHot(Layer):
         obj = deepcopy(self)
         obj.decode_mode = True
         return obj
+
+
+class Doc2Vec(Layer):
+    parallel = False
+    trainable = True
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        n_components=200,
+        min_tf=2,
+        epochs=40,
+        model=None,
+        name=None,
+        verbose=True
+    ):
+        super(Doc2Vec, self).__init__(input, output, name, verbose, False)
+        self.n_components = n_components
+        self.min_tf = min_tf
+        self.epochs = epochs
+        self.model = model
+
+    def fit(self, series, y=None):
+        import gensim
+
+        train_corpus = [gensim.models.doc2vec.TaggedDocument(
+            tokens, [i]) for i, tokens in enumerate(series)]
+
+        self.model = gensim.models.doc2vec.Doc2Vec(
+            vector_size=self.n_components,
+            min_count=self.min_tf,
+            epochs=self.epochs)
+        self.model.build_vocab(train_corpus)
+        self.model.train(
+            train_corpus,
+            total_examples=self.model.corpus_count,
+            epochs=self.model.epochs)
+
+    def process_series(self, series):
+        if self.model is None:
+            self.fit(series)
+        return np.array(
+            [self.model.infer_vector(doc) for doc in series])
