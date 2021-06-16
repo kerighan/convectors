@@ -100,6 +100,76 @@ class MLP(ClassifierLayer):
             activation=activation, **kwargs)
 
 
+class GradientBoosting(ClassifierLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        n_estimators=100,
+        name=None,
+        verbose=True,
+        **kwargs
+    ):
+        super(ClassifierLayer, self).__init__(
+            input, output, name, verbose)
+
+        from sklearn.ensemble import GradientBoostingClassifier as GBC
+        self.clf = GBC(n_estimators=n_estimators, **kwargs)
+
+
+class XGBoost(ClassifierLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        **kwargs
+    ):
+        super(ClassifierLayer, self).__init__(
+            input, output, name, verbose)
+
+        from xgboost import XGBClassifier
+        self.clf = XGBClassifier(
+            use_label_encoder=False, eval_metric="mlogloss", **kwargs)
+
+
+class Voting(ClassifierLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        estimators=["gb", "rf", "mlp"],
+        verbose=True,
+        **kwargs
+    ):
+        super(ClassifierLayer, self).__init__(
+            input, output, name, verbose)
+
+        e = []
+        for estimator in estimators:
+            if estimator == "gb":
+                from sklearn.ensemble import GradientBoostingClassifier as GBC
+                e.append(("gb", GBC()))
+            elif estimator == "rf":
+                from sklearn.ensemble import RandomForestClassifier
+                e.append(("rf", RandomForestClassifier()))
+            elif estimator == "mlp":
+                from sklearn.neural_network import MLPClassifier
+                e.append(("mlp", MLPClassifier()))
+            elif estimator == "svm":
+                from sklearn.svm import LinearSVC
+                e.append(("svm", LinearSVC()))
+            elif estimator == "xgboost":
+                from xgboost import XGBClassifier
+                e.append(("xgboost", XGBClassifier(
+                    use_label_encoder=False, eval_metric="mlogloss")))
+
+        from sklearn.ensemble import VotingClassifier
+        self.clf = VotingClassifier(estimators=e, **kwargs)
+
+
 class Keras(Layer):
     parallel = False
     trainable = False
