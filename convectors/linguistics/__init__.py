@@ -251,7 +251,7 @@ class FindAll(Layer):
         self.regex = re.compile(name2regex.get(regex, regex))
 
     def process_doc(self, doc):
-        return re.findall(self.regex, self.replacement, doc)
+        return re.findall(self.regex, doc)
 
 
 class Contract(Layer):
