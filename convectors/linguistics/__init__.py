@@ -233,6 +233,27 @@ class Sub(Layer):
         return re.sub(self.regex, self.replacement, doc)
 
 
+class FindAll(Layer):
+    parallel = True
+    trainable = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        regex="emoji",
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        from .utils import name2regex
+        super(FindAll, self).__init__(input, output, name, verbose, parallel)
+        self.regex = re.compile(name2regex.get(regex, regex))
+
+    def process_doc(self, doc):
+        return re.findall(self.regex, self.replacement, doc)
+
+
 class Contract(Layer):
     parallel = True
     trainable = False
