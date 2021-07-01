@@ -97,11 +97,12 @@ class Sequence(Layer):
         max_features=None,
         min_tf=0,
         maxlen=None,
-        pad=False,
+        pad=True,
         padding="pre",
         unk_token=True,
         mask_token=True,
         word2id=None,
+        model=None,
         name=None,
         verbose=True
     ):
@@ -120,7 +121,18 @@ class Sequence(Layer):
             raise ValueError("padding argument should be 'pre' or 'post'")
         self.unk_token = unk_token
         self.mask_token = mask_token
-        if word2id is not None:
+
+        if model is not None:  # gensim model provided
+            if hasattr(model, "word2id"):  # convectors WordVectors instance
+                self.word2id = {k: v for k, v in model.word2id.items()}
+            else:
+                self.word2id = {}
+                for word, index in model.wv.key_to_index.items():
+                    self.word2id[word] = index + 1  # offset index by 1
+            self.unk_token = "<UNK>" in self.word2id
+            self.mask_token = "<MASK>" in self.word2id
+            self.n_features = len(self.word2id)
+        elif word2id is not None:  # custom word2id mapping
             self.word2id = word2id
             self.unk_token = "<UNK>" in self.word2id
             self.mask_token = "<MASK>" in self.word2id
