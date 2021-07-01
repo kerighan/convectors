@@ -22,7 +22,7 @@ class Model:
             layer.reload(**kwargs)
 
     def add(self, layer):
-        layer.verbose = self.verbose
+        layer.verbose = False
         layer_name = layer.name
 
         if layer_name in self.layer2num:
@@ -34,8 +34,15 @@ class Model:
         self.layers.append(layer)
 
     def apply(self, series, *args, y=None):
-        for layer in self.layers:
-            series = layer.apply(series, *args, y=y)
+        if self.verbose:
+            t = tqdm(self.layers)
+            for layer in t:
+                t.set_description(layer.name.ljust(12))
+                t.refresh()
+                series = layer.apply(series, *args, y=y)
+        else:
+            for layer in self.layers:
+                series = layer.apply(series, *args, y=y)
         return series
 
     def process(self, df, *args, y=None):
@@ -129,7 +136,11 @@ class Layer:
         else:
             # if layer must be trained
             if self.trainable and not self.trained:
-                for _ in tqdm(range(1), desc=f"{self.name} (fitting)"):
+                if self.verbose:
+                    iterable = tqdm(range(1), desc=f"{self.name} (fitting)")
+                else:
+                    iterable = range(1)
+                for _ in iterable:
                     self.fit(series, y=y)
                     self.trained = True
             # differing apply procedure depending on layer's logic
@@ -143,7 +154,11 @@ class Layer:
                                                  name=self.name,
                                                  verbose=self.verbose)
             else:
-                for _ in tqdm(range(1), desc=self.name):
+                if self.verbose:
+                    iterable = tqdm(range(1), desc=self.name)
+                else:
+                    iterable = range(1)
+                for _ in iterable:
                     res = self.process_series(series)
                 return res
 
