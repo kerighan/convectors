@@ -7,7 +7,7 @@ from . import Layer
 # =============================================================================
 
 
-class HashtagSplitter(Layer):
+class SplitHashtag(Layer):
     parallel = True
     trainable = False
 
@@ -19,7 +19,7 @@ class HashtagSplitter(Layer):
         verbose=True,
         parallel=False
     ):
-        super(HashtagSplitter, self).__init__(
+        super(SplitHashtag, self).__init__(
             input, output, name, verbose, parallel)
 
         # create document processing partial function

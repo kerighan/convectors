@@ -6,7 +6,7 @@ from tensorflow.keras.regularizers import l1 as l1reg
 class SelfAttention(Layer):
     def __init__(
             self, hidden_dim=20, n_heads=4, l1=1e-5,
-            activation="sigmoid", **_):
+            activation=None, **_):
         super(SelfAttention, self).__init__()
         self.hidden_dim = hidden_dim
         self.scale = int(hidden_dim**.5)
@@ -51,14 +51,14 @@ class SelfAttention(Layer):
         results = []
         for i in range(self.n_heads):
             # query vector
-            q = tf.matmul(input, self.query[i])
+            q = self.act(tf.matmul(input, self.query[i]))
 
             # key vector
-            k = tf.matmul(input, self.key[i])
+            k = self.act(tf.matmul(input, self.key[i]))
             k = tf.transpose(k, [0, 2, 1])
 
             # value vector
-            v = tf.matmul(input, self.value[i])
+            v = self.act(tf.matmul(input, self.value[i]))
 
             # score vector
             score = tf.matmul(q, k) / self.scale
@@ -69,7 +69,7 @@ class SelfAttention(Layer):
         results = tf.concat(results, axis=-1)
 
         transformed = tf.matmul(results, self.weight)
-        return transformed + input
+        return transformed + self.act(input)
 
     def get_config(self):
         config = super(SelfAttention, self).get_config()

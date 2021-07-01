@@ -235,6 +235,8 @@ class Transformer(Layer):
         n_heads=4,
         n_encoders=1,
         n_weighted=1,
+        encoder_activation=None,
+        weighted_activation="tanh",
         l1=1e-5,
         weights=None,
         train_embedding=True,
@@ -256,6 +258,8 @@ class Transformer(Layer):
         self.l1 = l1
         self.weights = weights
         self.train_embedding = train_embedding
+        self.encoder_activation = encoder_activation
+        self.weighted_activation = weighted_activation
 
     def unload(self):
         self.weights = self.model.get_weights()
@@ -284,7 +288,8 @@ class Transformer(Layer):
         self.model = model
 
     def fit(self, series, y=None):
-        from tensorflow.keras.layers import Dense, Embedding, InputLayer
+        from tensorflow.keras.layers import (Activation, BatchNormalization,
+                                             Dense, Embedding, InputLayer)
         from tensorflow.keras.models import Sequential
 
         from .layers import SelfAttention, WeightedAttention
@@ -322,13 +327,19 @@ class Transformer(Layer):
                                 mask_zero=True, weights=[self.weights],
                                 trainable=self.train_embedding))
 
+        model.add(Activation("tanh"))
+
         # self attention layers
         for _ in range(self.n_encoders):
-            model.add(SelfAttention(self.encoder_dim, self.n_heads, self.l1))
+            model.add(SelfAttention(self.encoder_dim,
+                      self.n_heads, self.l1,
+                      activation=self.encoder_activation))
+            model.add(BatchNormalization())
 
         # weighted attention layer
         model.add(WeightedAttention(
-            self.weighted_dim, self.n_weighted, self.l1))
+            self.weighted_dim, self.n_weighted, self.l1,
+            activation=self.weighted_activation))
         model.add(Dense(n_classes, activation="softmax"))
         model.compile("nadam", loss, metrics=["accuracy"])
         if self.verbose:
