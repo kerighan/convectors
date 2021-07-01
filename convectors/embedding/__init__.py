@@ -85,7 +85,7 @@ class CountVectorizer(VectorizerLayer):
             **kwargs)
 
 
-class Embedding(Layer):
+class Sequence(Layer):
     parallel = False
     trainable = True
     document_wise = False
@@ -105,7 +105,7 @@ class Embedding(Layer):
         name=None,
         verbose=True
     ):
-        super(Embedding, self).__init__(input, output, name, verbose, False)
+        super(Sequence, self).__init__(input, output, name, verbose, False)
         if max_features is None:
             max_features = float("inf")
         self.max_features = max_features

@@ -136,10 +136,12 @@ class Layer:
             if self.document_wise:
                 if self.parallel and self.run_parallel:
                     return series.parallel_apply(self.process_doc,
-                                                 name=self.name)
+                                                 name=self.name,
+                                                 verbose=self.verbose)
                 else:
                     return series.progress_apply(self.process_doc,
-                                                 name=self.name)
+                                                 name=self.name,
+                                                 verbose=self.verbose)
             else:
                 for _ in tqdm(range(1), desc=self.name):
                     res = self.process_series(series)

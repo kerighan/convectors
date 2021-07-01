@@ -16,13 +16,16 @@ def input_series(func):
     return wrapper
 
 
-def parallel_apply(series, func, name=None):
+def parallel_apply(series, func, name=None, verbose=True):
     res = process_map(func, series, desc=name)
     return pd.Series(res, index=series.index)
 
 
-def progress_apply(series, func, name=None):
-    res = tmap(func, series, desc=name)
+def progress_apply(series, func, name=None, verbose=True):
+    if verbose:
+        res = tmap(func, series, desc=name)
+    else:
+        res = [func(x) for x in series]
     return pd.Series(res, index=series.index)
 
 
