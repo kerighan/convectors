@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.utils import validation
 
 from .. import Layer, to_matrix
 from .utils import tensorflow_shutup
@@ -237,9 +238,12 @@ class Transformer(Layer):
         n_weighted=1,
         encoder_activation=None,
         weighted_activation="tanh",
+        embedding_activation="tanh",
         l1=1e-5,
         weights=None,
         train_embedding=True,
+        balance="over",
+        validation_split=.1,
         **options
     ):
         super(Transformer, self).__init__(input, output, name, verbose, False)
@@ -260,6 +264,9 @@ class Transformer(Layer):
         self.train_embedding = train_embedding
         self.encoder_activation = encoder_activation
         self.weighted_activation = weighted_activation
+        self.embedding_activation = embedding_activation
+        self.balance = balance
+        self.validation_split = validation_split
 
     def unload(self):
         self.weights = self.model.get_weights()
@@ -288,6 +295,7 @@ class Transformer(Layer):
         self.model = model
 
     def fit(self, series, y=None):
+        from sklearn.model_selection import train_test_split
         from tensorflow.keras.layers import (Activation, BatchNormalization,
                                              Dense, Embedding, InputLayer)
         from tensorflow.keras.models import Sequential
@@ -300,6 +308,21 @@ class Transformer(Layer):
         X = to_matrix(series)
         if issparse(X):
             X = np.array(X.todense())
+
+        n_features = int(X.max()) + 1 + 2  # one for mask and one for unk
+
+        # train test split
+        X, X_test, y, y_test = train_test_split(
+            X, y, test_size=self.validation_split)
+
+        if self.balance == "over":
+            from imblearn.over_sampling import RandomOverSampler
+            ros = RandomOverSampler(random_state=0)
+            X, y = ros.fit_resample(X, y)
+        elif self.balance == "under":
+            from imblearn.under_sampling import RandomUnderSampler
+            ros = RandomUnderSampler(random_state=0)
+            X, y = ros.fit_resample(X, y)
 
         # shape variables
         input_len = X.shape[1]
@@ -318,7 +341,6 @@ class Transformer(Layer):
 
         # embedding layer
         if self.weights is None:
-            n_features = int(X.max()) + 1
             model.add(Embedding(n_features, embedding_dim, mask_zero=True))
         else:
             n_features = self.weights.shape[0]
@@ -327,7 +349,8 @@ class Transformer(Layer):
                                 mask_zero=True, weights=[self.weights],
                                 trainable=self.train_embedding))
 
-        model.add(Activation("tanh"))
+        if self.embedding_activation is not None:
+            model.add(Activation(self.embedding_activation))
 
         # self attention layers
         for _ in range(self.n_encoders):
@@ -346,7 +369,7 @@ class Transformer(Layer):
             model.summary()
 
         # fit model
-        model.fit(X, y, **self.options)
+        model.fit(X, y, validation_data=(X_test, y_test), **self.options)
         self.model = model
 
     def process_series(self, series):

@@ -245,7 +245,6 @@ class OneHot(Layer):
             tf = Counter(itertools.chain(*series))
             self.multilabel = True
         else:
-            print(series)
             tf = Counter(series)
             self.multilabel = False
 
