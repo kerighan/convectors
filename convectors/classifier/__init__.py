@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.utils import validation
 
 from .. import Layer, to_matrix
 from .utils import tensorflow_shutup
@@ -300,7 +299,7 @@ class Transformer(Layer):
                                              Dense, Embedding, InputLayer)
         from tensorflow.keras.models import Sequential
 
-        from .layers import SelfAttention, WeightedAttention
+        from .layers import SaveBestModel, SelfAttention, WeightedAttention
         assert y is not None
 
         # get data
@@ -313,7 +312,7 @@ class Transformer(Layer):
 
         # train test split
         X, X_test, y, y_test = train_test_split(
-            X, y, test_size=self.validation_split)
+            X, y, test_size=self.validation_split, random_state=0)
 
         if self.balance == "over":
             from imblearn.over_sampling import RandomOverSampler
@@ -369,7 +368,10 @@ class Transformer(Layer):
             model.summary()
 
         # fit model
-        model.fit(X, y, validation_data=(X_test, y_test), **self.options)
+        save_best_model = SaveBestModel()
+        model.fit(X, y, validation_data=(X_test, y_test),
+                  callbacks=[save_best_model], **self.options)
+        model.set_weights(save_best_model.best_weights)
         self.model = model
 
     def process_series(self, series):
