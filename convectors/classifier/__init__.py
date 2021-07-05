@@ -15,16 +15,40 @@ class ClassifierLayer(Layer):
         self,
         input=None,
         output=None,
+        balance="oversampling",
+        validation_split=.1,
         name=None,
         verbose=True,
     ):
         super(ClassifierLayer, self).__init__(
             input, output, name, verbose, False)
+        self.balance = balance
+        self.validation_split = validation_split
 
     def fit(self, series, y=None):
+        from sklearn.metrics import accuracy_score
+        from sklearn.model_selection import train_test_split
+
         assert y is not None
         X = to_matrix(series)
+
+        # train test split
+        X, X_test, y, y_test = train_test_split(
+            X, y, test_size=self.validation_split, random_state=0)
+
+        if self.balance == "oversampling":
+            from imblearn.over_sampling import RandomOverSampler
+            ros = RandomOverSampler(random_state=0)
+            X, y = ros.fit_resample(X, y)
+        elif self.balance == "undersampling":
+            from imblearn.under_sampling import RandomUnderSampler
+            ros = RandomUnderSampler(random_state=0)
+            X, y = ros.fit_resample(X, y)
+
         self.clf.fit(X, y)
+
+        accuracy = 100 * accuracy_score(self.clf.predict(X_test), y_test)
+        print(f"val_accuracy={accuracy:.2f}")
 
     def process_series(self, series):
         X = to_matrix(series)
@@ -38,12 +62,14 @@ class RandomForest(ClassifierLayer):
         output=None,
         n_estimators=100,
         max_depth=None,
+        balance="oversampling",
+        validation_split=.1,
         name=None,
         verbose=True,
         **kwargs
     ):
-        super(ClassifierLayer, self).__init__(
-            input, output, name, verbose)
+        super(RandomForest, self).__init__(
+            input, output, balance, validation_split, name, verbose)
 
         from sklearn.ensemble import RandomForestClassifier
         self.clf = RandomForestClassifier(
@@ -56,12 +82,14 @@ class AdaBoost(ClassifierLayer):
         input=None,
         output=None,
         n_estimators=50,
+        balance="oversampling",
+        validation_split=.1,
         name=None,
         verbose=True,
         **kwargs
     ):
-        super(ClassifierLayer, self).__init__(
-            input, output, name, verbose)
+        super(AdaBoost, self).__init__(
+            input, output, balance, validation_split, name, verbose)
 
         from sklearn.ensemble import AdaBoostClassifier
         self.clf = AdaBoostClassifier(n_estimators=n_estimators, **kwargs)
@@ -72,12 +100,14 @@ class SVM(ClassifierLayer):
         self,
         input=None,
         output=None,
+        balance="oversampling",
+        validation_split=.1,
         name=None,
         verbose=True,
         **kwargs
     ):
-        super(ClassifierLayer, self).__init__(
-            input, output, name, verbose)
+        super(SVM, self).__init__(
+            input, output, balance, validation_split, name, verbose)
 
         from sklearn.svm import LinearSVC
         self.clf = LinearSVC(**kwargs)
@@ -90,12 +120,14 @@ class MLP(ClassifierLayer):
         output=None,
         hidden_layer_sizes=100,
         activation='relu',
+        balance="oversampling",
+        validation_split=.1,
         name=None,
         verbose=True,
         **kwargs
     ):
-        super(ClassifierLayer, self).__init__(
-            input, output, name, verbose)
+        super(MLP, self).__init__(
+            input, output, balance, validation_split, name, verbose)
 
         from sklearn.neural_network import MLPClassifier
         self.clf = MLPClassifier(
@@ -109,12 +141,14 @@ class GradientBoosting(ClassifierLayer):
         input=None,
         output=None,
         n_estimators=100,
+        balance="oversampling",
+        validation_split=.1,
         name=None,
         verbose=True,
         **kwargs
     ):
-        super(ClassifierLayer, self).__init__(
-            input, output, name, verbose)
+        super(GradientBoosting, self).__init__(
+            input, output, balance, validation_split, name, verbose)
 
         from sklearn.ensemble import GradientBoostingClassifier as GBC
         self.clf = GBC(n_estimators=n_estimators, **kwargs)
@@ -125,12 +159,14 @@ class XGBoost(ClassifierLayer):
         self,
         input=None,
         output=None,
+        balance="oversampling",
+        validation_split=.1,
         name=None,
         verbose=True,
         **kwargs
     ):
-        super(ClassifierLayer, self).__init__(
-            input, output, name, verbose)
+        super(XGBoost, self).__init__(
+            input, output, balance, validation_split, name, verbose)
 
         from xgboost import XGBClassifier
         self.clf = XGBClassifier(
@@ -144,11 +180,13 @@ class Voting(ClassifierLayer):
         output=None,
         name=None,
         estimators=["gb", "rf", "mlp"],
+        balance="oversampling",
+        validation_split=.1,
         verbose=True,
         **kwargs
     ):
-        super(ClassifierLayer, self).__init__(
-            input, output, name, verbose)
+        super(Voting, self).__init__(
+            input, output, balance, validation_split, name, verbose)
 
         e = []
         for estimator in estimators:
@@ -314,11 +352,11 @@ class Transformer(Layer):
         X, X_test, y, y_test = train_test_split(
             X, y, test_size=self.validation_split, random_state=0)
 
-        if self.balance == "over":
+        if self.balance == "oversampling":
             from imblearn.over_sampling import RandomOverSampler
             ros = RandomOverSampler(random_state=0)
             X, y = ros.fit_resample(X, y)
-        elif self.balance == "under":
+        elif self.balance == "undersampling":
             from imblearn.under_sampling import RandomUnderSampler
             ros = RandomUnderSampler(random_state=0)
             X, y = ros.fit_resample(X, y)
