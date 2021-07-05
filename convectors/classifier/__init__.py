@@ -279,7 +279,7 @@ class Transformer(Layer):
         l1=1e-5,
         weights=None,
         train_embedding=True,
-        balance="over",
+        balance="oversampling",
         validation_split=.1,
         **options
     ):
