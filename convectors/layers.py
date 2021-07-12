@@ -1,4 +1,5 @@
-from .classifier import MLP, SVM, AdaBoost, Keras, RandomForest, Transformer
+from .classifier import (MLP, SVM, AdaBoost, Keras, RandomForest, Transformer,
+                         XGBoost)
 from .embedding import CountVectorizer, Doc2Vec, OneHot, Sequence, TfIdf
 from .linguistics import Contract, FindAll, Phrase, Snowball, Sub, Tokenize
 from .multi import Merge
@@ -11,6 +12,5 @@ __all__ = [
     "TfIdf", "CountVectorizer", "Sequence", "OneHot", "Doc2Vec",
     "SVD", "PCA", "NMF", "UMAP",
     "RandomForest", "AdaBoost", "SVM", "MLP", "Keras", "Transformer",
-    "Merge", "Normalize",
-    "SplitHashtag"
+    "XGBoost", "Merge", "Normalize", "SplitHashtag"
 ]
