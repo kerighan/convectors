@@ -224,11 +224,17 @@ class Keras(Layer):
         balance="oversampling",
         validation_split=.1,
         name=None,
-        verbose=True
+        verbose=True,
+        **options
     ):
         super(Keras, self).__init__(
             input, output, name, verbose, False)
         assert model is not None
+        self.options = options
+        if "epochs" not in self.options:
+            options["epochs"] = 1
+        if "batch_size" not in self.options:
+            options["batch_size"] = 200
         self.model = model
         self.balance = balance
         self.validation_split = validation_split
@@ -375,12 +381,7 @@ class Transformer(Layer):
         input_len = X.shape[1]
         embedding_dim = self.embedding_dim
 
-        if len(y.shape) == 1:
-            n_classes = y.max() + 1
-            loss = "sparse_categorical_crossentropy"
-        else:
-            n_classes = y.shape[1]
-            loss = "categorical_crossentropy"
+        loss, n_classes = infer_crossentropy_loss_and_classes(y)
 
         # create model
         model = Sequential()
