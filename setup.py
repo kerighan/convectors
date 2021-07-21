@@ -9,7 +9,7 @@ with open(README_FILENAME) as f:
 
 setuptools.setup(
     name="convectors",
-    version="0.0.7",
+    version="0.0.8",
     author="Maixent Chenebaux",
     description=("End-to-end NLP package for seamless integration of "
                  "Pandas Series, DataFrame and Keras model"),
@@ -19,7 +19,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         "numpy", "scikit-learn", "scipy",
-        "tqdm", "pandas", "dill"
+        "tqdm", "pandas", "dill", "sqlitedict"
     ],
     include_package_data=True,
     classifiers=[
