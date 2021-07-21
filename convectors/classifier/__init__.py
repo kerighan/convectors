@@ -213,7 +213,7 @@ class Voting(ClassifierLayer):
 
 class Keras(Layer):
     parallel = False
-    trainable = False
+    trainable = True
     document_wise = False
 
     def __init__(
@@ -221,6 +221,8 @@ class Keras(Layer):
         input=None,
         output=None,
         model=None,
+        balance="oversampling",
+        validation_split=.1,
         name=None,
         verbose=True
     ):
@@ -228,6 +230,8 @@ class Keras(Layer):
             input, output, name, verbose, False)
         assert model is not None
         self.model = model
+        self.balance = balance
+        self.validation_split = validation_split
 
     def unload(self):
         self.weights = self.model.get_weights()
@@ -254,6 +258,26 @@ class Keras(Layer):
         if issparse(X):
             X = np.array(X.todense())
         return self.model.predict(X)
+
+    def fit(self, series, y=None):
+        from .layers import SaveBestModel
+        assert y is not None
+
+        # get data
+        X = self.get_numpy_matrix(series)
+
+        # get train and test sets
+        X, y, X_test, y_test = balanced_train_test_split(
+            X, y, self.validation_split, self.balance)
+
+        if self.verbose:
+            self.model.summary()
+
+        # fit model
+        save_best_model = SaveBestModel()
+        self.model.fit(X, y, validation_data=(X_test, y_test),
+                       callbacks=[save_best_model], **self.options)
+        self.model.set_weights(save_best_model.best_weights)
 
 
 class Transformer(Layer):
@@ -332,7 +356,6 @@ class Transformer(Layer):
         self.model = model
 
     def fit(self, series, y=None):
-        from sklearn.model_selection import train_test_split
         from tensorflow.keras.layers import (Activation, BatchNormalization,
                                              Dense, Embedding, InputLayer)
         from tensorflow.keras.models import Sequential
@@ -341,25 +364,12 @@ class Transformer(Layer):
         assert y is not None
 
         # get data
-        from scipy.sparse import issparse
-        X = to_matrix(series)
-        if issparse(X):
-            X = np.array(X.todense())
-
+        X = self.get_numpy_matrix(series)
         n_features = int(X.max()) + 1 + 2  # one for mask and one for unk
 
-        # train test split
-        X, X_test, y, y_test = train_test_split(
-            X, y, test_size=self.validation_split, random_state=0)
-
-        if self.balance == "oversampling":
-            from imblearn.over_sampling import RandomOverSampler
-            ros = RandomOverSampler(random_state=0)
-            X, y = ros.fit_resample(X, y)
-        elif self.balance == "undersampling":
-            from imblearn.under_sampling import RandomUnderSampler
-            ros = RandomUnderSampler(random_state=0)
-            X, y = ros.fit_resample(X, y)
+        # get train and test sets
+        X, y, X_test, y_test = balanced_train_test_split(
+            X, y, self.validation_split, self.balance)
 
         # shape variables
         input_len = X.shape[1]
@@ -420,3 +430,31 @@ class Transformer(Layer):
         if not hasattr(self, "model"):
             self.reload()
         return self.model.predict(X)
+
+
+def balanced_train_test_split(X, y, validation_split, balance):
+    from sklearn.model_selection import train_test_split
+
+    # train test split
+    X, X_test, y, y_test = train_test_split(
+        X, y, test_size=validation_split, random_state=0)
+
+    if balance == "oversampling":
+        from imblearn.over_sampling import RandomOverSampler
+        ros = RandomOverSampler(random_state=0)
+        X, y = ros.fit_resample(X, y)
+    elif balance == "undersampling":
+        from imblearn.under_sampling import RandomUnderSampler
+        ros = RandomUnderSampler(random_state=0)
+        X, y = ros.fit_resample(X, y)
+    return X, y, X_test, y_test
+
+
+def infer_crossentropy_loss_and_classes(y):
+    if len(y.shape) == 1:
+        n_classes = y.max() + 1
+        loss = "sparse_categorical_crossentropy"
+    else:
+        n_classes = y.shape[1]
+        loss = "categorical_crossentropy"
+    return loss, n_classes

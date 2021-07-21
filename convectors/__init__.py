@@ -111,6 +111,14 @@ class Layer:
         self.trained = False
         self.run_parallel = parallel
 
+    def get_numpy_matrix(self, series):
+        # get data
+        from scipy.sparse import issparse
+        X = to_matrix(series)
+        if issparse(X):
+            X = np.array(X.todense())
+        return X
+
     def unload(self):
         pass
 
