@@ -21,6 +21,7 @@ setuptools.setup(
         "numpy", "scikit-learn", "scipy",
         "tqdm", "pandas", "dill"
     ],
+    include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3.8",
         "Operating System :: OS Independent",

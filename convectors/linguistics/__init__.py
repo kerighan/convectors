@@ -98,6 +98,57 @@ class Snowball(Layer):
             return [self.stemmer.stem(w) for w in text]
 
 
+class Lemmatizer(Layer):
+    parallel = True
+    trainable = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        lang="fr",
+        memoize=True,
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super(Lemmatizer, self).__init__(
+            input, output, name, verbose, parallel)
+
+        self.lang = lang
+        self.memoize = memoize
+        self.word2stem = {}
+        self.reload()
+
+    def unload(self):
+        del self.db
+        self.word2stem = {}
+
+    def reload(self, **_):
+        import os
+
+        from sqlitedict import SqliteDict
+
+        path = os.path.dirname(__file__)
+        db_fn = os.path.join(
+            path, f"../ressources/lemma/{self.lang}_lemma.sqlite")
+        print(db_fn)
+        self.db = SqliteDict(db_fn, flag="r")
+
+    def stem(self, w):
+        if self.memoize:
+            lemma = self.word2stem.get(w)
+            if lemma is None:
+                lemma = self.db.get(w, w)
+            self.word2stem[w] = lemma
+            return lemma
+        lemma = self.db.get(w, w)
+        return lemma
+
+    def process_doc(self, text):
+        return [self.stem(w) for w in text]
+
+
 class StanzaStemmer(Layer):
     parallel = True
     trainable = False
