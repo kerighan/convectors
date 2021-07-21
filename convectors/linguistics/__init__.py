@@ -132,7 +132,6 @@ class Lemmatizer(Layer):
         path = os.path.dirname(__file__)
         db_fn = os.path.join(
             path, f"../ressources/lemma/{self.lang}_lemma.sqlite")
-        print(db_fn)
         self.db = SqliteDict(db_fn, flag="r")
 
     def stem(self, w):
