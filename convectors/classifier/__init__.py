@@ -432,6 +432,15 @@ class Transformer(Layer):
             self.reload()
         return self.model.predict(X)
 
+    def get_truncated_model(self, i=-2, trainable=True):
+        from tensorflow.keras.models import Sequential
+        model = Sequential()
+        for layer in self.model.layers:
+            if not trainable:
+                layer.trainable = False
+            model.add(layer)
+        return model
+
 
 def balanced_train_test_split(X, y, validation_split, balance):
     from sklearn.model_selection import train_test_split
