@@ -362,11 +362,7 @@ class Transformer(Layer):
         self.model = model
 
     def fit(self, series, y=None):
-        from tensorflow.keras.layers import (Activation, BatchNormalization,
-                                             Dense, Embedding, InputLayer)
-        from tensorflow.keras.models import Sequential
-
-        from .layers import SaveBestModel, SelfAttention, WeightedAttention
+        from .layers import SaveBestModel
         assert y is not None
 
         # get data
@@ -384,6 +380,32 @@ class Transformer(Layer):
         loss, n_classes = infer_crossentropy_loss_and_classes(y)
 
         # create model
+        if not hasattr(self, "model"):
+            self.model = self.create_model(input_len,
+                                           embedding_dim,
+                                           n_features,
+                                           n_classes)
+
+        # compile model
+        self.model.compile("nadam", loss, metrics=["accuracy"])
+        if self.verbose:
+            self.model.summary()
+
+        # fit model
+        save_best_model = SaveBestModel()
+        self.model.fit(X, y, validation_data=(X_test, y_test),
+                       callbacks=[save_best_model], **self.options)
+        self.model.set_weights(save_best_model.best_weights)
+
+    def create_model(
+        self,
+        input_len, embedding_dim, n_features, n_classes
+    ):
+        from tensorflow.keras.layers import (Activation, BatchNormalization,
+                                             Dense, Embedding, InputLayer)
+        from tensorflow.keras.models import Sequential
+
+        from .layers import SelfAttention, WeightedAttention
         model = Sequential()
         model.add(InputLayer(input_shape=(input_len,)))
 
@@ -412,16 +434,7 @@ class Transformer(Layer):
             self.weighted_dim, self.n_weighted, self.l1,
             activation=self.weighted_activation))
         model.add(Dense(n_classes, activation="softmax"))
-        model.compile("nadam", loss, metrics=["accuracy"])
-        if self.verbose:
-            model.summary()
-
-        # fit model
-        save_best_model = SaveBestModel()
-        model.fit(X, y, validation_data=(X_test, y_test),
-                  callbacks=[save_best_model], **self.options)
-        model.set_weights(save_best_model.best_weights)
-        self.model = model
+        return model
 
     def process_series(self, series):
         from scipy.sparse import issparse
@@ -432,14 +445,42 @@ class Transformer(Layer):
             self.reload()
         return self.model.predict(X)
 
-    def get_truncated_model(self, i=-2, trainable=True):
+    def truncate_model(self, until=-1, freeze=False):
         from tensorflow.keras.models import Sequential
         model = Sequential()
-        for layer in self.model.layers:
-            if not trainable:
+
+        if until is None:
+            layers = self.model.layers
+        else:
+            layers = self.model.layers[:until]
+        for layer in layers:
+            if freeze:
                 layer.trainable = False
             model.add(layer)
         return model
+
+    def fine_tune(
+        self,
+        n_classes,
+        until=-1,
+        freeze=True,
+        n_hidden=0,
+        hidden_size=100,
+        hidden_activation="sigmoid"
+    ):
+        from tensorflow.keras.layers import Dense
+        model = self.truncate_model(until, freeze)
+        for i in range(n_hidden):
+            model.add(Dense(
+                hidden_size, activation=hidden_activation,
+                name=f"fine_tune_hidden_{i}",
+                trainable=True))
+        model.add(Dense(n_classes,
+                        activation="softmax",
+                        trainable=True,
+                        name="fine_tune_output"))
+        self.model = model
+        self.trained = False
 
 
 def balanced_train_test_split(X, y, validation_split, balance):

@@ -7,11 +7,19 @@ from .utils import input_series
 
 
 class Model:
-    def __init__(self, name="Model", verbose=True):
+    def __init__(self, layers=[], name="Model", verbose=True):
         self.name = name
         self.verbose = verbose
         self.layers = []
         self.layer2num = {}
+        for layer in layers:
+            self.add(layer)
+
+    def copy(self):
+        nlp = Model()
+        for layer in self.layers:
+            nlp.add(layer)
+        return nlp
 
     def unload(self):
         for layer in self.layers:
@@ -32,6 +40,15 @@ class Model:
             self.layer2num[layer_name] = 1
         layer.name = layer_name
         self.layers.append(layer)
+
+    def remove(self, layer_name):
+        for i, layer in enumerate(self.layers):
+            if layer.name == layer_name:
+                self.layers.pop(i)
+                del self.layer2num[layer_name]
+                return
+
+        raise KeyError(f"layer named {layer} not found")
 
     def apply(self, series, *args, y=None):
         if self.verbose:
@@ -80,8 +97,11 @@ class Model:
             u = "\n| " + layer.__repr__()
             u += " " * (length + 2 - len(u)) + "|"
             t += u
-        t += "\n" + "+" + "-" * length + "+"
+        t += "\n" + "+" + "-" * length + "+\n"
         return t
+
+    def summary(self):
+        print(self.__repr__())
 
     def save(self, filename):
         import dill
