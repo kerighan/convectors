@@ -303,10 +303,12 @@ class Transformer(Layer):
         n_heads=4,
         n_encoders=1,
         n_weighted=1,
+        n_hidden=0,
         encoder_activation=None,
         weighted_activation="tanh",
         embedding_activation="tanh",
-        l1=1e-5,
+        l1=1e-6,
+        optimizer="nadam",
         weights=None,
         train_embedding=True,
         balance="oversampling",
@@ -320,12 +322,14 @@ class Transformer(Layer):
         if "batch_size" not in self.options:
             options["batch_size"] = 200
 
+        self.optimizer = optimizer
         self.embedding_dim = embedding_dim
         self.encoder_dim = encoder_dim
         self.weighted_dim = weighted_dim
         self.n_heads = n_heads
         self.n_encoders = n_encoders
         self.n_weighted = n_weighted
+        self.n_hidden = n_hidden
         self.l1 = l1
         self.weights = weights
         self.train_embedding = train_embedding
@@ -387,7 +391,7 @@ class Transformer(Layer):
                                            n_classes)
 
         # compile model
-        self.model.compile("nadam", loss, metrics=["accuracy"])
+        self.model.compile(self.optimizer, loss, metrics=["accuracy"])
         if self.verbose:
             self.model.summary()
 
@@ -420,6 +424,7 @@ class Transformer(Layer):
                                 trainable=self.train_embedding))
 
         if self.embedding_activation is not None:
+            model.add(BatchNormalization())
             model.add(Activation(self.embedding_activation))
 
         # self attention layers
@@ -433,6 +438,11 @@ class Transformer(Layer):
         model.add(WeightedAttention(
             self.weighted_dim, self.n_weighted, self.l1,
             activation=self.weighted_activation))
+
+        for _ in range(self.n_hidden):
+            model.add(Dense(self.weighted_dim,
+                      activation=self.weighted_activation))
+
         model.add(Dense(n_classes, activation="softmax"))
         return model
 
