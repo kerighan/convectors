@@ -6,6 +6,7 @@ from .linguistics import (Contract, FindAll, Lemmatizer, Phrase, Snowball, Sub,
 from .multi import Merge
 from .preprocessing import Normalize
 from .reduction import NMF, PCA, SVD, UMAP
+from .regressor import KerasRegressor, MLPRegressor
 from .special import SplitHashtag
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "TfIdf", "CountVectorizer", "Sequence", "OneHot", "Doc2Vec",
     "SVD", "PCA", "NMF", "UMAP", "Lemmatizer",
     "RandomForest", "AdaBoost", "SVM", "MLP", "Keras", "Transformer",
-    "XGBoost", "Merge", "Normalize", "SplitHashtag"
+    "XGBoost", "Merge", "Normalize", "SplitHashtag",
+    "MLPRegressor", "KerasRegressor"
 ]
