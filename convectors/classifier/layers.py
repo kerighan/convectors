@@ -20,6 +20,12 @@ class SelfAttention(Layer):
             self.act = tf.sigmoid
         elif activation == "tanh":
             self.act = tf.tanh
+        elif activation == "relu":
+            self.act = tf.nn.relu
+        elif activation == "selu":
+            self.act = tf.nn.selu
+        elif activation == "softmax":
+            self.act = tf.nn.softmax
 
     def build(self, input_shape):
         input_length = int(input_shape[-2])
@@ -102,6 +108,12 @@ class WeightedAttention(tf.keras.layers.Layer):
             self.act = tf.sigmoid
         elif activation == "tanh":
             self.act = tf.tanh
+        elif activation == "relu":
+            self.act = tf.nn.relu
+        elif activation == "selu":
+            self.act = tf.nn.selu
+        elif activation == "softmax":
+            self.act = tf.nn.softmax
 
     def build(self, input_shape):
         dim = int(input_shape[-1])
