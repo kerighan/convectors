@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.lib.npyio import save
 
 from .. import Layer, to_matrix
 from .utils import tensorflow_shutup
@@ -223,8 +224,10 @@ class Keras(Layer):
         model=None,
         balance="oversampling",
         validation_split=.1,
+        metric="val_accuracy",
         name=None,
         verbose=True,
+        trained=False,
         **options
     ):
         super(Keras, self).__init__(
@@ -238,6 +241,8 @@ class Keras(Layer):
         self.model = model
         self.balance = balance
         self.validation_split = validation_split
+        self.metric = metric
+        self.trained = trained
 
     def unload(self):
         self.weights = self.model.get_weights()
@@ -280,7 +285,10 @@ class Keras(Layer):
             self.model.summary()
 
         # fit model
-        save_best_model = SaveBestModel()
+        if self.metric == "val_loss":
+            save_best_model = SaveBestModel()
+        else:
+            save_best_model = SaveBestModel("val_accuracy", True)
         self.model.fit(X, y, validation_data=(X_test, y_test),
                        callbacks=[save_best_model], **self.options)
         self.model.set_weights(save_best_model.best_weights)
@@ -312,6 +320,7 @@ class Transformer(Layer):
         weights=None,
         train_embedding=True,
         balance="oversampling",
+        metric="val_accuracy",
         validation_split=.1,
         **options
     ):
@@ -338,6 +347,7 @@ class Transformer(Layer):
         self.embedding_activation = embedding_activation
         self.balance = balance
         self.validation_split = validation_split
+        self.metric = metric
 
     def unload(self):
         self.weights = self.model.get_weights()
@@ -396,7 +406,10 @@ class Transformer(Layer):
             self.model.summary()
 
         # fit model
-        save_best_model = SaveBestModel()
+        if self.metric == "val_loss":
+            save_best_model = SaveBestModel()
+        else:
+            save_best_model = SaveBestModel("val_accuracy", True)
         self.model.fit(X, y, validation_data=(X_test, y_test),
                        callbacks=[save_best_model], **self.options)
         self.model.set_weights(save_best_model.best_weights)

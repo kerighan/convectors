@@ -83,6 +83,19 @@ class Model:
         else:
             self.process(df, *args, y=y)
 
+    def __add__(self, model_2):
+        name = f"{self.name}+{model_2.name}"
+        model = Model(verbose=self.verbose, name=name)
+        for layer in self.layers:
+            model.add(layer)
+
+        if isinstance(model_2, Model):
+            for layer in model_2.layers:
+                model.add(layer)
+        else:
+            model.add(model_2)
+        return model
+
     def __iadd__(self, layer):
         self.add(layer)
         return self

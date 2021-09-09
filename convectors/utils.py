@@ -11,7 +11,10 @@ def input_series(func):
     def wrapper(*args, **kwargs):
         if args[0].parallel and not isinstance(args[1], pd.Series):
             args = list(args)
-            args[1] = pd.Series(args[1])
+            try:
+                args[1] = pd.Series(args[1])
+            except ValueError:
+                args[1] = pd.Series(list(args[1]))
         return func(*args, **kwargs)
     return wrapper
 
