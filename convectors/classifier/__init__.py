@@ -506,6 +506,206 @@ class Transformer(Layer):
         self.trained = False
 
 
+class RNN(Layer):
+    parallel = False
+    trainable = True
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        embedding_dim=16,
+        lstm_dim=16,
+        hidden_dim=32,
+        n_lstm=1,
+        n_hidden=1,
+        embedding_activation=None,
+        lstm_activation="tanh",
+        hidden_activation="tanh",
+        bidirectional=True,
+        l1=1e-6,
+        optimizer="nadam",
+        weights=None,
+        train_embedding=True,
+        balance="oversampling",
+        metric="val_accuracy",
+        validation_split=.1,
+        **options
+    ):
+        super(RNN, self).__init__(input, output, name, verbose, False)
+        self.options = options
+        if "epochs" not in self.options:
+            options["epochs"] = 1
+        if "batch_size" not in self.options:
+            options["batch_size"] = 200
+
+        self.optimizer = optimizer
+
+        self.n_hidden = n_hidden
+        self.l1 = l1
+        self.weights = weights
+        self.train_embedding = train_embedding
+        self.embedding_dim = embedding_dim
+        self.lstm_dim = lstm_dim
+        self.hidden_dim = hidden_dim
+        self.n_lstm = n_lstm
+        self.n_hidden = n_hidden
+        self.embedding_activation = embedding_activation
+        self.lstm_activation = lstm_activation
+        self.hidden_activation = hidden_activation
+        self.bidirectional = bidirectional
+        self.balance = balance
+        self.validation_split = validation_split
+        self.metric = metric
+
+    def unload(self):
+        self.weights = self.model.get_weights()
+        self.config = self.model.get_config()
+        del self.model
+
+    def reload(self, **_):
+        from tensorflow.keras.models import Model as KModel
+        from tensorflow.keras.models import Sequential
+        try:
+            model = KModel.from_config(self.config)
+        except KeyError:
+            model = Sequential.from_config(self.config)
+        model.set_weights(self.weights)
+        del self.weights
+        del self.config
+        self.model = model
+
+    def fit(self, series, y=None):
+        from .layers import SaveBestModel
+        assert y is not None
+
+        # get data
+        X = self.get_numpy_matrix(series)
+        n_features = int(X.max()) + 1 + 2  # one for mask and one for unk
+
+        # get train and test sets
+        X, y, X_test, y_test = balanced_train_test_split(
+            X, y, self.validation_split, self.balance)
+
+        # shape variables
+        input_len = X.shape[1]
+        embedding_dim = self.embedding_dim
+
+        loss, n_classes = infer_crossentropy_loss_and_classes(y)
+
+        # create model
+        if not hasattr(self, "model"):
+            self.model = self.create_model(input_len,
+                                           embedding_dim,
+                                           n_features,
+                                           n_classes)
+
+        # compile model
+        self.model.compile(self.optimizer, loss, metrics=["accuracy"])
+        if self.verbose:
+            self.model.summary()
+
+        # fit model
+        if self.metric == "val_loss":
+            save_best_model = SaveBestModel()
+        else:
+            save_best_model = SaveBestModel("val_accuracy", True)
+        self.model.fit(X, y, validation_data=(X_test, y_test),
+                       callbacks=[save_best_model], **self.options)
+        self.model.set_weights(save_best_model.best_weights)
+
+    def create_model(
+        self,
+        input_len, embedding_dim, n_features, n_classes
+    ):
+        from tensorflow.keras.layers import (LSTM, Activation,
+                                             BatchNormalization, Bidirectional,
+                                             Dense, Embedding, InputLayer)
+        from tensorflow.keras.models import Sequential
+
+        model = Sequential()
+        model.add(InputLayer(input_shape=(input_len,)))
+
+        # embedding layer
+        if self.weights is None:
+            model.add(Embedding(n_features, embedding_dim, mask_zero=True))
+        else:
+            n_features = self.weights.shape[0]
+            embedding_dim = self.weights.shape[1]
+            model.add(Embedding(n_features, embedding_dim,
+                                mask_zero=True, weights=[self.weights],
+                                trainable=self.train_embedding))
+
+        if self.embedding_activation is not None:
+            model.add(BatchNormalization())
+            model.add(Activation(self.embedding_activation))
+
+        # LSTM layers
+        for i in range(self.n_lstm):
+            layer = LSTM(
+                self.lstm_dim, activation=self.lstm_activation,
+                return_sequences=i < self.n_lstm - 1)
+            if self.bidirectional:
+                layer = Bidirectional(layer, merge_mode="concat")
+            model.add(layer)
+            model.add(BatchNormalization())
+
+        for _ in range(self.n_hidden):
+            model.add(Dense(self.hidden_dim, self.hidden_activation))
+
+        model.add(Dense(n_classes, activation="softmax"))
+        return model
+
+    def process_series(self, series):
+        from scipy.sparse import issparse
+        X = to_matrix(series)
+        if issparse(X):
+            X = np.array(X.todense())
+        if not hasattr(self, "model"):
+            self.reload()
+        return self.model.predict(X)
+
+    def truncate_model(self, until=-1, freeze=False):
+        from tensorflow.keras.models import Sequential
+        model = Sequential()
+
+        if until is None:
+            layers = self.model.layers
+        else:
+            layers = self.model.layers[:until]
+        for layer in layers:
+            if freeze:
+                layer.trainable = False
+            model.add(layer)
+        return model
+
+    def fine_tune(
+        self,
+        n_classes,
+        until=-1,
+        freeze=True,
+        n_hidden=0,
+        hidden_size=100,
+        hidden_activation="sigmoid"
+    ):
+        from tensorflow.keras.layers import Dense
+        model = self.truncate_model(until, freeze)
+        for i in range(n_hidden):
+            model.add(Dense(
+                hidden_size, activation=hidden_activation,
+                name=f"fine_tune_hidden_{i}",
+                trainable=True))
+        model.add(Dense(n_classes,
+                        activation="softmax",
+                        trainable=True,
+                        name="fine_tune_output"))
+        self.model = model
+        self.trained = False
+
+
 def balanced_train_test_split(X, y, validation_split, balance):
     from sklearn.model_selection import train_test_split
 
