@@ -230,6 +230,8 @@ class OneHot(Layer):
         output=None,
         name=None,
         to_categorical=False,
+        threshold=None,
+        unk_token=None,
         verbose=True
     ):
         super(OneHot, self).__init__(input, output, name, verbose, False)
@@ -237,6 +239,8 @@ class OneHot(Layer):
         self.class2id = {}
         self.multilabel = False
         self.decode_mode = False
+        self.threshold = threshold
+        self.unk_token = unk_token
 
     def fit(self, series, y=None):
         import itertools
@@ -281,8 +285,19 @@ class OneHot(Layer):
         else:
             if not self.multilabel:
                 if len(series.shape) == 2:
-                    X = np.argmax(series, axis=1)
-                    X = [self.id2class[c] for c in X]
+                    if self.threshold is None:
+                        X = np.argmax(series, axis=1)
+                        X = [self.id2class[c] for c in X]
+                    else:
+                        t = self.threshold
+                        assert self.unk_token is not None
+                        X = np.argmax(series, axis=1)
+                        max_list = np.max(series, axis=1)
+                        X = [
+                            self.id2class[c] if m >= t else self.unk_token
+                            for c, m in zip(X, max_list)
+
+                        ]
                 elif len(series.shape) == 1:
                     X = [self.id2class[c] for c in series]
                 else:
