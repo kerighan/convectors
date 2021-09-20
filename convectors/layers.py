@@ -7,7 +7,7 @@ from .multi import Merge
 from .preprocessing import Normalize
 from .reduction import NMF, PCA, SVD, UMAP
 from .regressor import KerasRegressor, MLPRegressor
-from .special import Lambda, SplitHashtag
+from .special import DomainName, Lambda, SplitHashtag
 
 __all__ = [
     "Tokenize", "Snowball", "Phrase", "Sub", "Contract", "FindAll",
@@ -15,5 +15,5 @@ __all__ = [
     "SVD", "PCA", "NMF", "UMAP", "Lemmatizer",
     "RandomForest", "AdaBoost", "SVM", "MLP", "Keras", "Transformer",
     "XGBoost", "Merge", "Normalize", "SplitHashtag",
-    "MLPRegressor", "KerasRegressor", "Lambda", "RNN"
+    "MLPRegressor", "KerasRegressor", "Lambda", "RNN", "DomainName"
 ]

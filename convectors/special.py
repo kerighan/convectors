@@ -52,3 +52,33 @@ class Lambda(Layer):
             self.process_series = func
         else:
             raise ValueError("axis can only be 0 or 1")
+
+
+class DomainName(Layer):
+    parallel = True
+    trainable = False
+    document_wise = True
+
+    def __init__(self, input=None, output=None, verbose=False, name=None,
+                 parallel=False):
+        """
+        Returns URL base source in urls
+        """
+        super(DomainName, self).__init__(
+            input, output, name, verbose, parallel)
+
+    def process_doc(self, u):
+        if isinstance(u, list):
+            a = [re.findall(
+                r'^(?:https?:\/\/)?(?:[^@\/\n]+@)?(?:www\.)?([^:\/?\n]+)', url)
+                for url in u
+            ]
+            return [item for liste in a for item in liste]
+        else:
+            res = re.findall(
+                r'^(?:https?:\/\/)?(?:[^@\/\n]+@)?(?:www\.)?([^:\/?\n]+)', u)
+            if len(res) == 1:
+                return res[0]
+            elif len(res) == 0:
+                return
+            return res
