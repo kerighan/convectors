@@ -9,13 +9,20 @@ def identity(x):
 
 def input_series(func):
     def wrapper(*args, **kwargs):
+        return_string = False
         if args[0].parallel and not isinstance(args[1], pd.Series):
+            if isinstance(args[1], str):
+                return_string = True
+
             args = list(args)
             try:
                 args[1] = pd.Series(args[1])
             except ValueError:
                 args[1] = pd.Series(list(args[1]))
-        return func(*args, **kwargs)
+        res = func(*args, **kwargs)
+        if return_string:
+            return res[0]
+        return res
     return wrapper
 
 

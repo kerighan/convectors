@@ -19,6 +19,8 @@ class Tokenize(Layer):
         stopwords=None,
         strip_accents=False,
         strip_punctuation=True,
+        sentence_tokenize=False,
+        word_tokenize=True,
         lower=True,
         name=None,
         verbose=True,
@@ -37,6 +39,8 @@ class Tokenize(Layer):
             self.stopwords = stopwords
         self.strip_accents = strip_accents
         self.strip_punctuation = strip_punctuation
+        self.sentence_tokenize = sentence_tokenize
+        self.word_tokenize = word_tokenize
         self.lower = lower
 
         # create document processing partial function
@@ -45,6 +49,8 @@ class Tokenize(Layer):
             stopwords=self.stopwords,
             strip_accents=self.strip_accents,
             strip_punctuation=self.strip_punctuation,
+            sentence_tokenize=self.sentence_tokenize,
+            word_tokenize=self.word_tokenize,
             lower=self.lower)
 
 
@@ -145,7 +151,11 @@ class Lemmatizer(Layer):
         return lemma
 
     def process_doc(self, text):
-        return [self.stem(w) for w in text]
+        if len(text) == 0:
+            return []
+        if isinstance(text[0], str):
+            return [self.stem(w) for w in text]
+        return [[self.stem(w) for w in s] for s in text]
 
 
 class StanzaStemmer(Layer):
@@ -328,14 +338,35 @@ class Contract(Layer):
 # =============================================================================
 
 
+def words_from(text):
+    return re.findall(
+        r"([\w]+|['\U0001F300-\U0001F5FF'|'\U0001F600-\U0001F64F'|"
+        r"'\U0001F680-\U0001F6FF'|'\u2600-\u26FF\u2700-\u27BF'])",
+        text, re.UNICODE)
+
+
+def words_and_punctuation_from(text):
+    return re.findall(
+        r"([\w]+|['\U0001F300-\U0001F5FF'|'\U0001F600-\U0001F64F'|"
+        r"'\U0001F680-\U0001F6FF'|'\u2600-\u26FF\u2700-\u27BF']|"
+        r"[,?;.:\/!()\[\]'\"’\\><+-=])",
+        text, re.UNICODE)
+
+
+def sentences_from(text):
+    return re.split(
+        r'(?<!\w[\t\r!:.?|•]\w.)(?<![A-Z][a-z][.])'
+        r'(?<![A-Z].)(?<=[\t\r!:.?|•…])\s', text)
+
+
 def tokenize(
     text,
     stopwords=None,
     strip_accents=False,
     strip_punctuation=True,
+    sentence_tokenize=False,
+    word_tokenize=True,
     lower=True,
-
-
 ):
     text = str(text)
     # turn lowercase
@@ -345,19 +376,23 @@ def tokenize(
     if strip_accents:
         from unidecode import unidecode
         text = unidecode(text)
-    if strip_punctuation:
-        # tokenize by removing punctuation
-        words = re.findall(
-            r"([\w]+|['\U0001F300-\U0001F5FF'|'\U0001F600-\U0001F64F'|"
-            r"'\U0001F680-\U0001F6FF'|'\u2600-\u26FF\u2700-\u27BF'])",
-            text, re.UNICODE)
+    if not sentence_tokenize:
+        if strip_punctuation:
+            # tokenize by removing punctuation
+            words = words_from(text)
+        else:
+            # tokenize by keeping punctuation
+            words = words_and_punctuation_from(text)
+    elif word_tokenize:
+        words = []
+        sentences = sentences_from(text)
+        if strip_punctuation:
+            words = [words_from(s) for s in sentences]
+        else:
+            words = [words_and_punctuation_from(s) for s in sentences]
     else:
-        # tokenize by keeping punctuation
-        words = re.findall(
-            r"([\w]+|['\U0001F300-\U0001F5FF'|'\U0001F600-\U0001F64F'|"
-            r"'\U0001F680-\U0001F6FF'|'\u2600-\u26FF\u2700-\u27BF']|"
-            r"[,?;.:\/!()\[\]'\"’\\><+-=])",
-            text, re.UNICODE)
+        return sentences_from(text)
+
     # remove stopwords
     if stopwords is not None:
         words = [w for w in words if w not in stopwords]
