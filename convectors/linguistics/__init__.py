@@ -314,6 +314,37 @@ class FindAll(Layer):
         return re.findall(self.regex, doc)
 
 
+class NGram(Layer):
+    parallel = True
+    trainable = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        ngram=2,
+        join=True,
+        lower=True,
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super(NGram, self).__init__(input, output, name, verbose, parallel)
+        self.ngram = ngram
+        self.join = join
+        self.lower = lower
+
+    def process_doc(self, doc):
+        if self.lower:
+            doc = doc.lower()
+        if self.join:
+            res = []
+            for data in zip(*(doc[i:] for i in range(self.ngram))):
+                res.append("".join(data))
+            return res
+        return list(zip(*(doc[i:] for i in range(self.ngram))))
+
+
 class Contract(Layer):
     parallel = True
     trainable = False

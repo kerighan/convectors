@@ -20,6 +20,8 @@ class Merge(Layer):
         parallel=False
     ):
         super(Merge, self).__init__(None, None, name, verbose, parallel)
+        for model in args:
+            model.verbose = False
         self.inputs = args
         self.merge_mode = merge_mode
 

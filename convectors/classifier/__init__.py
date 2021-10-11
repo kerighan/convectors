@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.lib.arraysetops import isin
 from numpy.lib.npyio import save
 
 from .. import Layer, to_matrix
@@ -134,6 +135,107 @@ class MLP(ClassifierLayer):
         self.clf = MLPClassifier(
             hidden_layer_sizes=hidden_layer_sizes,
             activation=activation, **kwargs)
+
+
+class TFMLP(ClassifierLayer):
+    parallel = False
+    trainable = True
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        hidden_layer_sizes=100,
+        activation='relu',
+        balance="oversampling",
+        optimizer="nadam",
+        metric="val_acc",
+        validation_split=.1,
+        dropout=.2,
+        l1=1e-6,
+        name=None,
+        verbose=True,
+        **options
+    ):
+        super(TFMLP, self).__init__(
+            input, output, balance, validation_split, name, verbose)
+        self.hidden_layer_sizes = hidden_layer_sizes
+        self.activation = activation
+        self.balance = balance
+        self.validation_split = validation_split
+        self.optimizer = optimizer
+        self.metric = metric
+        self.l1 = l1
+        self.dropout = dropout
+        self.options = options
+        if "epochs" not in self.options:
+            options["epochs"] = 1
+        if "batch_size" not in self.options:
+            options["batch_size"] = 200
+
+    def unload(self):
+        self.weights = self.model.get_weights()
+        self.config = self.model.get_config()
+        del self.model
+
+    def reload(self, **_):
+        from tensorflow.keras.models import Sequential
+
+        model = Sequential.from_config(self.config)
+        model.set_weights(self.weights)
+        del self.weights
+        del self.config
+        self.model = model
+
+    def create_model(self, loss, n_classes):
+        from tensorflow.keras.layers import Dense, Dropout
+        from tensorflow.keras.models import Sequential
+        model = Sequential()
+        if isinstance(self.hidden_layer_sizes, int):
+            sizes = [self.hidden_layer_sizes]
+        else:
+            sizes = self.hidden_layer_sizes
+
+        for size in sizes:
+            model.add(Dense(size,
+                      activation=self.activation))
+            model.add(Dropout(self.dropout))
+        model.add(Dense(n_classes, activation="softmax"))
+        model.compile(self.optimizer, loss, metrics=["accuracy"])
+        self.model = model
+
+    def process_series(self, series):
+        from scipy.sparse import issparse
+        X = to_matrix(series)
+        if issparse(X):
+            X = np.array(X.todense())
+        return self.model.predict(X)
+
+    def fit(self, series, y=None):
+        from .layers import SaveBestModel
+        assert y is not None
+
+        # get data
+        X = self.get_numpy_matrix(series)
+
+        # get train and test sets
+        X, y, X_test, y_test = balanced_train_test_split(
+            X, y, self.validation_split, self.balance)
+        loss, n_classes = infer_crossentropy_loss_and_classes(y)
+
+        self.create_model(loss, n_classes)
+        if self.verbose:
+            self.model.summary()
+
+        # fit model
+        if self.metric == "val_loss":
+            save_best_model = SaveBestModel()
+        else:
+            save_best_model = SaveBestModel("val_accuracy", True)
+        self.model.fit(X, y, validation_data=(X_test, y_test),
+                       callbacks=[save_best_model], **self.options)
+        self.model.set_weights(save_best_model.best_weights)
 
 
 class GradientBoosting(ClassifierLayer):
