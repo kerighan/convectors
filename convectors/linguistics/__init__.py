@@ -387,7 +387,7 @@ def words_and_punctuation_from(text):
 def sentences_from(text):
     return re.split(
         r'(?<!\w[\t\r!:.?|•]\w.)(?<![A-Z][a-z][.])'
-        r'(?<![A-Z].)(?<=[\t\r!:.?|•…])\s', text)
+        r'(?<=[\t\r!:.?|•…])\s', text)
 
 
 def tokenize(
