@@ -24,7 +24,7 @@ class VectorizerLayer(Layer):
 
     def fit(self, series, y=None):
         self.vectorizer.fit(series)
-        self.n_features = len(self.vectorizer.get_feature_names())
+        self.n_features = len(self.vectorizer.get_feature_names_out())
 
     def process_series(self, series):
         res = self.vectorizer.transform(series)
