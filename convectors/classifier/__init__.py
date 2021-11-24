@@ -1,6 +1,4 @@
 import numpy as np
-from numpy.lib.arraysetops import isin
-from numpy.lib.npyio import save
 
 from .. import Layer, to_matrix
 from .utils import tensorflow_shutup
