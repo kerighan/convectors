@@ -104,7 +104,7 @@ class Snowball(Layer):
             return [self.stemmer.stem(w) for w in text]
 
 
-class Lemmatizer(Layer):
+class Lemmatize(Layer):
     parallel = True
     trainable = False
 
@@ -118,7 +118,7 @@ class Lemmatizer(Layer):
         verbose=True,
         parallel=False
     ):
-        super(Lemmatizer, self).__init__(
+        super(Lemmatize, self).__init__(
             input, output, name, verbose, parallel)
 
         self.lang = lang

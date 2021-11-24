@@ -355,11 +355,25 @@ class Keras(Layer):
         from tensorflow.keras.models import Model as KModel
         from tensorflow.keras.models import Sequential
         try:
-            model = KModel.from_config(
-                self.config, custom_objects=custom_objects)
-        except KeyError:
-            model = Sequential.from_config(
-                self.config, custom_objects=custom_objects)
+            try:
+                model = KModel.from_config(
+                    self.config, custom_objects=custom_objects)
+            except KeyError:
+                model = Sequential.from_config(
+                    self.config, custom_objects=custom_objects)
+        except ValueError:
+            # add standard layers to Keras model if there's a ValueError
+            from .layers import SelfAttention, WeightedAttention
+            if custom_objects is None:
+                custom_objects = {}
+            custom_objects["WeightedAttention"] = WeightedAttention
+            custom_objects["SelfAttention"] = SelfAttention
+            try:
+                model = KModel.from_config(
+                    self.config, custom_objects=custom_objects)
+            except KeyError:
+                model = Sequential.from_config(
+                    self.config, custom_objects=custom_objects)
         model.set_weights(self.weights)
         del self.weights
         del self.config
