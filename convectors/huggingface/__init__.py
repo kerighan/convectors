@@ -19,6 +19,7 @@ class HuggingFaceLayer(Layer):
         super(HuggingFaceLayer, self).__init__(
             input, output, name, verbose, False)
         self.document_wise = document_wise
+        self.reload()
 
     def process_doc(self, doc):
         return self.nlp(doc)
@@ -27,6 +28,9 @@ class HuggingFaceLayer(Layer):
         if not isinstance(series, list):
             series = list(series)
         return self.nlp(series)
+
+    def unload(self):
+        del self.nlp
 
 
 class NER(HuggingFaceLayer):
@@ -39,18 +43,20 @@ class NER(HuggingFaceLayer):
         verbose=True,
         document_wise=True
     ):
-        from transformers import (AutoModelForTokenClassification,
-                                  AutoTokenizer, pipeline)
         super(NER, self).__init__(
             input, output, name, verbose, document_wise)
+        self.simplified = simplified
 
+    def reload(self):
+        from transformers import (AutoModelForTokenClassification,
+                                  AutoTokenizer, pipeline)
         tokenizer = AutoTokenizer.from_pretrained(
             "Jean-Baptiste/camembert-ner-with-dates")
         model = AutoModelForTokenClassification.from_pretrained(
             "Jean-Baptiste/camembert-ner-with-dates")
         self.nlp = pipeline("ner", model=model,
-                            tokenizer=tokenizer, aggregation_strategy="simple")
-        self.simplified = simplified
+                            tokenizer=tokenizer,
+                            aggregation_strategy="simple")
 
     def process_doc(self, doc):
         res = self.nlp(doc)

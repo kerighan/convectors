@@ -195,37 +195,6 @@ class StanzaStemmer(Layer):
         return [word.lemma for sent in res.sentences for word in sent.words]
 
 
-class SpacyStemmer(Layer):
-    parallel = True
-    trainable = False
-
-    def __init__(
-        self,
-        input=None,
-        output=None,
-        lang="fr",
-        name=None,
-        verbose=True,
-        parallel=False
-    ):
-        super(SpacyStemmer, self).__init__(
-            input, output, name, verbose, parallel)
-
-        self.lang = lang
-        self.reload()
-
-    def unload(self):
-        del self.stemmer
-
-    def reload(self, **_):
-        import spacy
-        self.nlp = spacy.load(f"{self.lang}_core_news_sm")
-
-    def process_doc(self, text):
-        doc = self.nlp(text)
-        return [word.lemma_ for word in doc]
-
-
 class Phrase(Layer):
     parallel = True
     trainable = True
@@ -363,6 +332,34 @@ class Contract(Layer):
         if not isinstance(doc, str):
             doc = str(doc)
         return re.sub(r"(.)\1{2,}", r"\1", doc)
+
+
+class LangDetect(Layer):
+    parallel = True
+    trainable = False
+    document_wise = True
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super(LangDetect, self).__init__(
+            input, output, name, verbose, parallel)
+        from langdetect import detect
+        from langdetect.lang_detect_exception import LangDetectException
+        self.detect = detect
+        self.exception = LangDetectException
+
+    def process_doc(self, doc):
+        try:
+            return self.detect(doc)
+        except self.exception:
+            return None
+
 
 # =============================================================================
 # Functions
