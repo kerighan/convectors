@@ -1,5 +1,3 @@
-from numpy.lib.arraysetops import isin
-
 from .. import Layer
 
 

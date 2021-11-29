@@ -1,4 +1,6 @@
+import numpy as np
 import pandas as pd
+from scipy.sparse import issparse
 from tqdm.contrib import tmap
 from tqdm.contrib.concurrent import process_map
 
@@ -13,12 +15,14 @@ def input_series(func):
         if not isinstance(args[1], pd.Series):
             if isinstance(args[1], str):
                 return_string = True
-
-            args = list(args)
-            try:
-                args[1] = pd.Series(args[1])
-            except ValueError:
-                args[1] = pd.Series(list(args[1]))
+            if issparse(args[1]) or isinstance(args[1], np.ndarray):
+                pass
+            else:
+                args = list(args)
+                try:
+                    args[1] = pd.Series(args[1])
+                except ValueError:
+                    args[1] = pd.Series(list(args[1]))
         res = func(*args, **kwargs)
         if return_string:
             return res[0]

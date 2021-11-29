@@ -56,6 +56,7 @@ class TfIdf(VectorizerLayer):
             max_features=max_features,
             min_df=min_df, max_df=max_df,
             token_pattern=None,
+            lowercase=False,
             **kwargs)
 
 
