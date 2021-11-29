@@ -10,7 +10,7 @@ def identity(x):
 def input_series(func):
     def wrapper(*args, **kwargs):
         return_string = False
-        if args[0].parallel and not isinstance(args[1], pd.Series):
+        if not isinstance(args[1], pd.Series):
             if isinstance(args[1], str):
                 return_string = True
 
