@@ -274,7 +274,7 @@ class WordVectors:
             yield key
 
     def __len__(self):
-        return self.num_words
+        return len(self.word2id)
 
     def __contains__(self, key):
         return key in self.word2id
