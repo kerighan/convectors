@@ -113,7 +113,6 @@ class Lemmatize(Layer):
         input=None,
         output=None,
         lang="fr",
-        memoize=True,
         name=None,
         verbose=True,
         parallel=False
@@ -122,32 +121,24 @@ class Lemmatize(Layer):
             input, output, name, verbose, parallel)
 
         self.lang = lang
-        self.memoize = memoize
         self.word2stem = {}
         self.reload()
 
     def unload(self):
-        del self.db
         self.word2stem = {}
 
     def reload(self, **_):
         import os
+        import pickle
 
-        from sqlitedict import SqliteDict
-
-        path = os.path.dirname(__file__)
         db_fn = os.path.join(
-            path, f"../ressources/lemma/{self.lang}_lemma.sqlite")
-        self.db = SqliteDict(db_fn, flag="r")
+            os.path.dirname(__file__),
+            f"../ressources/lemma/{self.lang}_lemma.p")
+        with open(db_fn, "rb") as f:
+            self.word2stem = pickle.load(f)
 
     def stem(self, w):
-        if self.memoize:
-            lemma = self.word2stem.get(w)
-            if lemma is None:
-                lemma = self.db.get(w, w)
-            self.word2stem[w] = lemma
-            return lemma
-        lemma = self.db.get(w, w)
+        lemma = self.word2stem.get(w, w)
         return lemma
 
     def process_doc(self, text):
@@ -203,8 +194,10 @@ class Phrase(Layer):
         self,
         input=None,
         output=None,
-        min_count=5,
-        threshold=3,
+        min_count=10,
+        threshold=.5,
+        max_len=float("inf"),
+        bigram=False,
         name=None,
         verbose=True,
         parallel=False
@@ -212,14 +205,35 @@ class Phrase(Layer):
         super(Phrase, self).__init__(input, output, name, verbose, parallel)
         self.min_count = min_count
         self.threshold = threshold
+        self.bigram = bigram
+        self.max_len = max_len
+        if bigram:
+            self.process_doc = self.process_bigram
+        else:
+            self.process_doc = self.process_chain
 
     def fit(self, series, *args, y=None):
         self.pmi = set(pmi(
-            series, window_size=1,
+            series, window_size=2,
             minimum=self.threshold,
-            min_count=self.min_count).keys())
+            min_count=self.min_count,
+            normalize=True).keys())
 
-    def process_doc(self, text):
+    def process_bigram(self, text):
+        skip = False
+        res = []
+        for word_a, word_b in zip(text[:-1], text[1:]):
+            if skip:
+                skip = False
+                continue
+            elif (word_a, word_b) in self.pmi:
+                res.append(f"{word_a}_{word_b}")
+                skip = True
+            else:
+                res.append(word_a)
+        return res
+
+    def process_chain(self, text):
         if len(text) == 0:
             return []
 
@@ -230,11 +244,15 @@ class Phrase(Layer):
             word = text[i]
             if (last_word, word) in self.pmi:
                 chain.append(word)
+            elif (word, last_word) in self.pmi:
+                chain.append(word)
             else:
+                if len(chain) >= self.max_len:
+                    continue
                 words.append("_".join(chain))
                 chain = [word]
             last_word = word
-        if len(chain) != 0:
+        if 0 < len(chain) < self.max_len:
             words.append("_".join(chain))
         return words
 
@@ -439,9 +457,9 @@ def pmi(series, window_size=3, min_count=2, minimum=0.6, normalize=False):
 
     cooc = defaultdict(int)
     for words in series:
-        windows = zip(*[words[i:] for i in range(window_size + 1)])
+        windows = zip(*[words[i:] for i in range(window_size)])
         for window in windows:
-            source = window[window_size]
+            source = window[window_size - 1]
             if source is None:
                 continue
             for pos, target in enumerate(window):
@@ -449,6 +467,7 @@ def pmi(series, window_size=3, min_count=2, minimum=0.6, normalize=False):
                     continue
 
                 couple = (target, source)
+                # couple = (source, target)
                 cooc[couple] += 1
 
     npmi_ = {}

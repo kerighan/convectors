@@ -72,3 +72,33 @@ class NER(HuggingFaceLayer):
             [(it["word"], it["entity_group"]) for it in doc]
             for doc in res
         ]
+
+
+class Summarize(HuggingFaceLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        document_wise=True
+    ):
+        super().__init__(input, output, name, verbose, document_wise)
+
+    def reload(self):
+        from transformers import (AutoModelForSeq2SeqLM, AutoTokenizer,
+                                  SummarizationPipeline)
+        mdl = "lincoln/mbart-mlsum-automatic-summarization"
+        tokenizer = AutoTokenizer.from_pretrained(mdl)
+        model = AutoModelForSeq2SeqLM.from_pretrained(mdl)
+        self.nlp = SummarizationPipeline(
+            model=model, tokenizer=tokenizer)
+
+    def process_doc(self, doc):
+        return self.nlp(doc)
+
+    def process_series(self, series):
+        if not isinstance(series, list):
+            series = list(series)
+        res = self.nlp(series)
+        return res
