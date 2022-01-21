@@ -149,6 +149,9 @@ class Lemmatize(Layer):
         return [[self.stem(w) for w in s] for s in text]
 
 
+Lemmatizer = Lemmatize
+
+
 class StanzaStemmer(Layer):
     parallel = True
     trainable = False
@@ -441,7 +444,11 @@ def tokenize(
 
     # remove stopwords
     if stopwords is not None:
-        words = [w for w in words if w not in stopwords]
+        if not sentence_tokenize:
+            words = [w for w in words if w not in stopwords]
+        else:
+            words = [[w for w in sentence if w not in stopwords]
+                     for sentence in words]
     return words
 
 
@@ -455,23 +462,19 @@ def pmi(series, window_size=3, min_count=2, minimum=0.6, normalize=False):
     N = len(series)
     M = N * window_size
 
-    cooc = defaultdict(int)
-    for words in series:
-        windows = zip(*[words[i:] for i in range(window_size)])
-        for window in windows:
-            source = window[window_size - 1]
-            if source is None:
-                continue
-            for pos, target in enumerate(window):
-                if pos == window_size or target is None or target == source:
-                    continue
+    cooc_ = defaultdict(int)
+    for words in series.tolist():
+        for i in range(len(words)):
+            source = words[i]
+            length = min(len(words) - i, window_size)
+            for j in range(i+1, i + length):
+                target = words[j]
 
                 couple = (target, source)
-                # couple = (source, target)
-                cooc[couple] += 1
+                cooc_[couple] += 1
 
     npmi_ = {}
-    for couple, count in cooc.items():
+    for couple, count in cooc_.items():
         if count < min_count:
             continue
         x, y = couple
@@ -486,3 +489,19 @@ def pmi(series, window_size=3, min_count=2, minimum=0.6, normalize=False):
         if npmi_value > minimum:
             npmi_[couple] = npmi_value
     return npmi_
+
+
+def cooc(series, window_size=3):
+    from collections import defaultdict
+
+    cooc_ = defaultdict(int)
+    for words in series.tolist():
+        for i in range(len(words)):
+            source = words[i]
+            length = min(len(words) - i, window_size)
+            for j in range(i+1, i + length):
+                target = words[j]
+
+                couple = (target, source)
+                cooc_[couple] += 1
+    return cooc_
