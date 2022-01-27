@@ -356,3 +356,99 @@ class Doc2Vec(Layer):
             self.fit(series)
         return np.array(
             [self.model.infer_vector(doc) for doc in series])
+
+
+class SWEM(Layer):
+    parallel = True
+    trainable = False
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        model=None,
+        method="concat",
+        window=3,
+        sample_points=np.linspace(.1, 10, 10),
+        name=None,
+        verbose=True,
+        **kwargs,
+    ):
+        super().__init__(input, output, name, verbose)
+        self.model = model
+        self.window = window
+        self.method = method
+        self.sample_points = sample_points
+        self.dim = self.model.weights.shape[1]
+
+        if method == "concat":
+            self.process_series = self.process_concat
+        elif method == "hier":
+            self.process_series = self.process_hierarchical
+        elif method == "char-hier":
+            self.process_series = self.process_characteristic_hierarchical
+        elif method == "characteristic":
+            self.process_series = self.process_characteristic
+
+    def process_concat(self, series):
+        res = []
+        for doc in series:
+            words = [self.model[w] for w in doc if w in self.model.word2id]
+            if len(words) == 0:
+                res.append(np.zeros((2*self.dim,)))
+                continue
+            words_avg = np.mean(words, axis=0)
+            words_max = np.max(words, axis=0)
+            vector = np.concatenate([words_avg, words_max], axis=0)
+            res.append(vector)
+        return np.array(res)
+
+    def process_hierarchical(self, series):
+        res = []
+        for doc in series:
+            words = np.array([self.model[w]
+                             for w in doc if w in self.model.word2id])
+
+            ngrams = [np.mean(words[i:i+self.window], axis=0)
+                      for i in range(max(1, len(words)-self.window+1))]
+            vector = np.max(ngrams, axis=0)
+            res.append(vector)
+        return np.array(res)
+
+    def process_characteristic(self, series):
+        res = []
+        for doc in series:
+            words = np.array([self.model[w]
+                             for w in doc if w in self.model.word2id])
+            vector = self.sample_characteristic_function(words)
+            res.append(vector)
+        return np.array(res)
+
+    def process_characteristic_hierarchical(self, series):
+        res = []
+        for doc in series:
+            words = np.array([self.model[w]
+                             for w in doc if w in self.model.word2id])
+
+            if len(words) == 0:
+                res.append(np.zeros((self.dim,)))
+                continue
+
+            ngrams = np.array(
+                [np.mean(words[i:i+self.window], axis=0)
+                 for i in range(max(1, len(words)-self.window+1))])
+            vector = self.sample_characteristic_function(ngrams)
+            res.append(vector)
+        return np.array(res)
+
+    def sample_characteristic_function(self, ngrams):
+        vector = []
+        for t in self.sample_points:
+            attributes = t*ngrams
+            real = np.mean(np.cos(attributes), axis=0)
+            imag = np.mean(np.sin(attributes), axis=0)
+            vector.append(real)
+            vector.append(imag)
+        vector = np.concatenate(vector)
+        return vector

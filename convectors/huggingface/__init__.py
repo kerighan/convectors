@@ -31,6 +31,35 @@ class HuggingFaceLayer(Layer):
         del self.nlp
 
 
+class Summarize(Layer):
+    parallel = False
+    trainable = False
+    document_wise = True
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+    ):
+        super().__init__(
+            input, output, name, verbose)
+        self.reload()
+
+    def reload(self):
+        from transformers import (AutoModelForSeq2SeqLM, AutoTokenizer,
+                                  SummarizationPipeline)
+        model_name = 'lincoln/mbart-mlsum-automatic-summarization'
+        loaded_tokenizer = AutoTokenizer.from_pretrained(model_name)
+        loaded_model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+        self.nlp = SummarizationPipeline(
+            model=loaded_model, tokenizer=loaded_tokenizer)
+
+    def process_doc(self, doc):
+        return self.nlp(doc)
+
+
 class NER(HuggingFaceLayer):
     def __init__(
         self,

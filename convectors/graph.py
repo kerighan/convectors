@@ -1,3 +1,6 @@
+import enum
+
+import numpy as np
 import pandas as pd
 
 from . import Layer, to_matrix
@@ -32,17 +35,10 @@ class KNNGraph(Layer):
         return G
 
     def get_hnswlib_graph(self, X):
-        import hnswlib
         import networkx as nx
-        import numpy as np
 
-        # possible options are l2, cosine or ip
-        index = hnswlib.Index(space='l2', dim=X.shape[1])
-        index.init_index(max_elements=X.shape[0], ef_construction=200, M=16)
-        index.add_items(X, np.arange(len(X)))
-        index.set_ef(50)
+        labels, _ = get_hnswlib_nns(X, self.k)
 
-        labels, _ = index.knn_query(X, k=self.k)
         edges = []
         for i, row in enumerate(labels):
             for j in row:
@@ -52,82 +48,9 @@ class KNNGraph(Layer):
         G = nx.Graph()
         G.add_nodes_from(range(len(X)))
         G.add_edges_from(edges)
-        # print(len(G.edges)/len(G.nodes))
-        return G
-
-
-class AdaptiveGraph(Layer):
-    parallel = False
-    trainable = False
-    document_wise = False
-
-    def __init__(
-        self,
-        input=None,
-        output=None,
-        k=10,
-        ratio=.8,
-        reject=.2,
-        n_samples=100,
-        algorithm="hnswlib",
-        metric="l2",
-        name=None,
-        verbose=True,
-        parallel=False
-    ):
-        super().__init__(input, output, name, verbose, parallel)
-        self.k = k
-        self.metric = metric
-        self.algorithm = algorithm
-        self.ratio = ratio
-        self.reject = reject
-        self.n_samples = n_samples
-
-    def process_series(self, series):
-        X = to_matrix(series)
-
-        if self.algorithm == "hnswlib":
-            G = self.get_hnswlib_graph(X)
-        return G
-
-    def get_hnswlib_graph(self, X):
-        import hnswlib
-        import networkx as nx
-        import numpy as np
-
-        n, dim = X.shape
-
-        # possible options are l2, cosine or ip
-        index = hnswlib.Index(space='l2', dim=dim)
-        index.init_index(max_elements=n, ef_construction=200, M=16)
-        index.add_items(X, np.arange(n))
-        index.set_ef(50)
-
-        labels, distances = index.knn_query(X, k=self.k)
-
-        # compute rejection threshold
-        x_sample = np.random.randint(0, n, size=self.n_samples)
-        y_sample = np.random.randint(0, self.k, size=self.n_samples)
-        samples = np.sort(distances[x_sample, y_sample])
-        rejection_threshold = samples[int(round(self.n_samples * self.reject))]
-        # print(rejection_threshold)
-        # rejection_threshold = float("inf")
-
-        # build graph
-        edges = []
-        for i, (row, dists) in enumerate(zip(labels, distances)):
-            threshold = self.ratio * np.mean(dists)
-            for j, d in zip(row, dists):
-                if i == j:
-                    continue
-                if d < threshold or d < rejection_threshold:
-                    # print(d, "reject")
-                    continue
-                edges.append((i, j))
-        G = nx.Graph()
-        G.add_nodes_from(range(len(X)))
-        G.add_edges_from(edges)
-        # print(len(G.edges)/len(G.nodes))
+        if self.verbose:
+            avg_degree = len(G.edges)/len(G.nodes)
+            print(f"avg_degree={avg_degree:.2f}")
         return G
 
 
@@ -143,6 +66,7 @@ class DensityGraph(Layer):
         k=10,
         algorithm="hnswlib",
         metric="l2",
+        centrifugal=False,
         name=None,
         verbose=True,
         parallel=False
@@ -151,6 +75,7 @@ class DensityGraph(Layer):
         self.k = k
         self.metric = metric
         self.algorithm = algorithm
+        self.centrifugal = centrifugal
 
     def process_series(self, series):
         X = to_matrix(series)
@@ -160,38 +85,32 @@ class DensityGraph(Layer):
         return G
 
     def get_hnswlib_graph(self, X):
-        import hnswlib
         import networkx as nx
         import numpy as np
 
-        n, dim = X.shape
+        n = X.shape[0]
+        labels, distances = get_hnswlib_nns(X, self.k)
 
-        # possible options are l2, cosine or ip
-        index = hnswlib.Index(space='l2', dim=dim)
-        index.init_index(max_elements=n, ef_construction=200, M=16)
-        index.add_items(X, np.arange(n))
-        index.set_ef(50)
-
-        labels, distances = index.knn_query(X, k=self.k)
-
-        labels, _ = index.knn_query(X, k=self.k)
         edges = []
         density = np.zeros(n)
         for i, (row, dists) in enumerate(zip(labels, distances)):
             density[i] = -np.sum(dists)
-            gap = np.argmax(dists[1:] - dists[:-1])
-            for j in row[:gap]:
+            gap = np.argmax(dists[2:] - dists[:-2])
+            for j in row[:gap + 2]:
                 if i == j:
                     continue
                 edges.append((i, j))
-        # print(len(edges))
-        edges = [(i, j) for i, j in edges if density[i] <= density[j]]
-        # print(len(edges))
+        if self.centrifugal:
+            edges = [(i, j) for i, j in edges if density[i] >= density[j]]
+        else:
+            edges = [(i, j) for i, j in edges if density[i] <= density[j]]
 
         G = nx.Graph()
         G.add_nodes_from(range(len(X)))
         G.add_edges_from(edges)
-        print(len(G.edges)/len(G.nodes))
+        # if self.verbose:
+        avg_degree = len(G.edges)/len(G.nodes)
+        print(f"avg_degree={avg_degree:.2f}")
         return G
 
 
@@ -205,10 +124,10 @@ class AdaptiveDensityGraph(Layer):
         input=None,
         output=None,
         k=10,
-        ratio=.8,
-        reject=.2,
+        ratio=1,
         n_samples=100,
         algorithm="hnswlib",
+        centrifugal=False,
         metric="l2",
         name=None,
         verbose=True,
@@ -219,8 +138,8 @@ class AdaptiveDensityGraph(Layer):
         self.metric = metric
         self.algorithm = algorithm
         self.ratio = ratio
-        self.reject = reject
         self.n_samples = n_samples
+        self.centrifugal = centrifugal
 
     def process_series(self, series):
         X = to_matrix(series)
@@ -230,27 +149,11 @@ class AdaptiveDensityGraph(Layer):
         return G
 
     def get_hnswlib_graph(self, X):
-        import hnswlib
         import networkx as nx
         import numpy as np
 
-        n, dim = X.shape
-
-        # possible options are l2, cosine or ip
-        index = hnswlib.Index(space='l2', dim=dim)
-        index.init_index(max_elements=n, ef_construction=200, M=16)
-        index.add_items(X, np.arange(n))
-        index.set_ef(50)
-
-        labels, distances = index.knn_query(X, k=self.k)
-
-        # compute rejection threshold
-        x_sample = np.random.randint(1, n, size=self.n_samples)
-        y_sample = np.random.randint(0, self.k, size=self.n_samples)
-        samples = np.sort(distances[x_sample, y_sample])
-        rejection_threshold = samples[int(round(self.n_samples * self.reject))]
-        # print(rejection_threshold)
-        # rejection_threshold = float("inf")
+        n = X.shape[0]
+        labels, distances = get_hnswlib_nns(X, self.k)
 
         # build graph
         edges = []
@@ -261,17 +164,126 @@ class AdaptiveDensityGraph(Layer):
             for j, d in zip(row, dists):
                 if i == j:
                     continue
-                if d < threshold or d < rejection_threshold:
-                    # print(d, "reject")
-                    continue
+                if d > threshold:
+                    break
                 edges.append((i, j))
-        edges = [(i, j) for i, j in edges if density[i] <= density[j]]
+        if self.centrifugal:
+            edges = [(i, j) for i, j in edges if density[i] >= density[j]]
+        else:
+            edges = [(i, j) for i, j in edges if density[i] <= density[j]]
 
         G = nx.Graph()
         G.add_nodes_from(range(len(X)))
         G.add_edges_from(edges)
-        # print(len(G.edges)/len(G.nodes))
+        # if self.verbose:
+        avg_degree = len(G.edges)/len(G.nodes)
+        print(f"avg_degree={avg_degree:.2f}")
         return G
+
+
+class ExpGraph(Layer):
+    parallel = False
+    trainable = False
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        k=10,
+        algorithm="hnswlib",
+        min_sim=.01,
+        max_sim=.99,
+        threshold=.1,
+        metric="l2",
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super().__init__(input, output, name, verbose, parallel)
+        self.k = k
+        self.metric = metric
+        self.algorithm = algorithm
+        self.min_sim = min_sim
+        self.max_sim = max_sim
+        self.threshold = threshold
+
+    def process_series(self, series):
+        X = to_matrix(series)
+        G = self.build_graph(X)
+        return G
+
+    def build_graph(self, X):
+        from collections import defaultdict
+
+        import networkx as nx
+
+        labels, distances = get_hnswlib_nns(X, self.k)
+
+        candidates = defaultdict(list)
+        for i, (nns, dists) in enumerate(zip(labels, distances)):
+            sims = self.get_tanh_similarities(dists)
+            # for j, similarity in zip(nns, sims):
+            gap = np.argmax(np.abs(sims[1:] - sims[:-1]))
+            for j, similarity in zip(nns[:gap + 1], sims[:gap + 1]):
+                if i == j:
+                    continue
+                pair = (i, j) if i < j else (j, i)
+                candidates[pair].append(similarity)
+
+        edges = []
+        for (i, j), weights in candidates.items():
+            if len(weights) == 1:
+                weight = weights[0]
+            else:
+                weight_a, weight_b = weights
+                weight = weight_a + weight_b - weight_a*weight_b
+            if weight < self.threshold:
+                continue
+            edges.append((i, j, weight))
+        G = nx.Graph()
+        G.add_nodes_from(range(len(X)))
+        G.add_weighted_edges_from(edges)
+        print(self.verbose)
+        # if self.verbose:
+        avg_degree = len(G.edges)/len(G.nodes)
+        print(f"avg_degree={avg_degree:.2f}")
+        return G
+
+    def get_exp_similarities(self, row):
+        d_k = row[-1]
+        d_k = max(d_k, 1e-6)
+        d_1 = row[1]
+        d_1 = max(d_1, 1e-6)
+        log_m = np.log(self.min_sim)
+        log_M = np.log(self.max_sim)
+        loglog_mM = np.log(log_m / log_M)
+
+        b = loglog_mM / np.log(d_k / d_1)
+        a = -log_m/(d_k**b)
+
+        similarities = np.exp(-a*row**b)
+        return similarities
+
+    def get_tanh_similarities(self, row):
+        d_k = row[-1]
+        d_1 = row[1]
+        if d_k == d_1:
+            return row**0
+
+        d_k = max(d_k, 1e-12)
+        d_1 = max(d_1, 1e-12)
+        numerator = np.log(np.arctanh(1 - self.max_sim) /
+                           np.arctanh(1 - self.min_sim))
+        denominator = np.log(d_1 / d_k)
+
+        b = numerator / denominator
+        if d_k**b == 0:
+            return row**0
+
+        a = np.arctanh(1 - self.min_sim) / (d_k**b)
+        similarities = 1 - np.tanh(a*row**b)
+        return similarities
 
 
 class Community(Layer):
@@ -300,19 +312,23 @@ class Community(Layer):
             try:
                 from cylouvain import best_partition
             except ImportError:
-                from community import best_partition
+                from community import best_partition, modularity
             labels = best_partition(G, resolution=self.resolution)
+            # if self.verbose:
+            Q = modularity(labels, G)
+            print(f"Q={Q:.2f}")
         elif self.algorithm == "infomap":
             from nodl.community import infomap
             labels = infomap(G)
         elif self.algorithm == "lpa":
             from nodl.community import RWLPA, label_propagation
 
-            # labels = RWLPA(G, k=2)
-            labels = label_propagation(G)
+            labels = RWLPA(G, k=2)
+            # labels = label_propagation(G)
 
         if self.relabel_communities:
             labels = relabel(labels)
+        print(labels)
         return pd.Series(labels[i] for i in range(len(labels)))
 
 
@@ -324,3 +340,19 @@ def relabel(labels):
         old2new[old_label] = i
     labels = {node: old2new[label] for node, label in labels.items()}
     return labels
+
+
+def get_hnswlib_nns(X, k):
+    import hnswlib
+    import numpy as np
+
+    n, dim = X.shape
+
+    # possible options are l2, cosine or ip
+    index = hnswlib.Index(space='l2', dim=dim)
+    index.init_index(max_elements=n, ef_construction=200, M=16)
+    index.add_items(X, np.arange(n))
+    index.set_ef(50)
+
+    labels, distances = index.knn_query(X, k=k)
+    return labels, distances

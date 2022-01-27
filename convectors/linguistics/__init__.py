@@ -1,3 +1,4 @@
+import itertools
 import re
 from functools import partial
 
@@ -452,8 +453,9 @@ def tokenize(
     return words
 
 
-def pmi(series, window_size=3, min_count=2, minimum=0.6, normalize=False):
-    import itertools
+def pmi(
+        series, window_size=3, min_count=2, minimum=0.6,
+        normalize=False, undirected=False):
     import math
     from collections import Counter, defaultdict
 
@@ -470,7 +472,14 @@ def pmi(series, window_size=3, min_count=2, minimum=0.6, normalize=False):
             for j in range(i+1, i + length):
                 target = words[j]
 
-                couple = (target, source)
+                if undirected:
+                    if source < target:
+                        couple = (source, target)
+                    else:
+                        couple = (target, source)
+                else:
+                    couple = (source, target)
+
                 cooc_[couple] += 1
 
     npmi_ = {}
@@ -502,6 +511,6 @@ def cooc(series, window_size=3):
             for j in range(i+1, i + length):
                 target = words[j]
 
-                couple = (target, source)
+                couple = (source, target)
                 cooc_[couple] += 1
     return cooc_
