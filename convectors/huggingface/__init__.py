@@ -31,7 +31,7 @@ class HuggingFaceLayer(Layer):
         del self.nlp
 
 
-class Summarize(Layer):
+class Summarize(HuggingFaceLayer):
     parallel = False
     trainable = False
     document_wise = True
@@ -45,7 +45,6 @@ class Summarize(Layer):
     ):
         super().__init__(
             input, output, name, verbose)
-        self.reload()
 
     def reload(self):
         from transformers import (AutoModelForSeq2SeqLM, AutoTokenizer,
@@ -55,9 +54,6 @@ class Summarize(Layer):
         loaded_model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
         self.nlp = SummarizationPipeline(
             model=loaded_model, tokenizer=loaded_tokenizer)
-
-    def process_doc(self, doc):
-        return self.nlp(doc)
 
 
 class NER(HuggingFaceLayer):
