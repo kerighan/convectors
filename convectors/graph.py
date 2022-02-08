@@ -328,7 +328,6 @@ class Community(Layer):
 
         if self.relabel_communities:
             labels = relabel(labels)
-        print(labels)
         return pd.Series(labels[i] for i in range(len(labels)))
 
 

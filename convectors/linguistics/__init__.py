@@ -329,10 +329,7 @@ class NGram(Layer):
         if self.lower:
             doc = doc.lower()
         if self.join:
-            res = []
-            for data in zip(*(doc[i:] for i in range(self.ngram))):
-                res.append("".join(data))
-            return res
+            return ngram(doc, n=self.ngram)
         return list(zip(*(doc[i:] for i in range(self.ngram))))
 
 
@@ -514,3 +511,11 @@ def cooc(series, window_size=3):
                 couple = (source, target)
                 cooc_[couple] += 1
     return cooc_
+
+
+def ngram(xs, n=3, func=lambda x: "".join(x)):
+    ts = itertools.tee(xs, n)
+    for i, t in enumerate(ts[1:]):
+        for _ in range(i + 1):
+            next(t, None)
+    return [func(it) for it in zip(*ts)]

@@ -234,7 +234,10 @@ class Layer:
 class WordVectors:
     def __init__(
         self,
-        model=None
+        model=None,
+        word2id=None,
+        id2word=None,
+        weights=None
     ):
         if model is not None:
             from tqdm import tqdm
@@ -249,6 +252,39 @@ class WordVectors:
                 self.word2id[word] = i
                 self.id2word[i] = word
             self.weights = np.vstack(weights)
+        else:
+            assert weights is not None
+            if word2id is not None:
+                if id2word is None:
+                    id2word = {i: word for word, i in word2id.items()}
+            elif id2word is not None:
+                word2id = {word: i for i, word in id2word.items()}
+            self.word2id = word2id
+            self.id2word = id2word
+            self.weights = weights
+
+    def restrict(self, words):
+        pass
+
+    def fit_to_sequence(self, seq, oov="zero"):
+        id2word = {i: word for word, i in seq.word2id.items()}
+        dim = self.weights.shape[1]
+        dtype = self.weights.dtype
+
+        new_weights = [np.zeros(dim, dtype=dtype)]
+        for i in range(1, max(id2word.keys()) + 1):
+            word = id2word[i]
+            # vec = np.zeros(dim, dtype=dtype)
+
+            weight_id = self.word2id.get(word)
+            if weight_id is None:
+                vec = np.zeros(dim, dtype=dtype)
+            else:
+                vec = self.weights[weight_id]
+            new_weights.append(vec)
+        new_weights = np.array(new_weights)
+
+        return WordVectors(id2word=id2word, weights=new_weights)
 
     def unload(self):
         pass

@@ -409,6 +409,9 @@ class SWEM(Layer):
         for doc in series:
             words = np.array([self.model[w]
                              for w in doc if w in self.model.word2id])
+            if len(words) == 0:
+                res.append(np.zeros((self.dim,)))
+                continue
 
             ngrams = [np.mean(words[i:i+self.window], axis=0)
                       for i in range(max(1, len(words)-self.window+1))]
@@ -421,6 +424,8 @@ class SWEM(Layer):
         for doc in series:
             words = np.array([self.model[w]
                              for w in doc if w in self.model.word2id])
+            if len(words) == 0:
+                words = np.zeros((1, self.dim))
             vector = self.sample_characteristic_function(words)
             res.append(vector)
         return np.array(res)
@@ -429,11 +434,10 @@ class SWEM(Layer):
         res = []
         for doc in series:
             words = np.array([self.model[w]
-                             for w in doc if w in self.model.word2id])
+                              for w in doc if w in self.model.word2id])
 
             if len(words) == 0:
-                res.append(np.zeros((self.dim,)))
-                continue
+                words = np.zeros((1, self.dim))
 
             ngrams = np.array(
                 [np.mean(words[i:i+self.window], axis=0)

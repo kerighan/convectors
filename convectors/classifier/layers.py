@@ -131,7 +131,11 @@ class WeightedAttention(tf.keras.layers.Layer):
             "evaluator", shape=(self.hidden_dim, 1), trainable=True,
             regularizer=l1reg(self.l1))
 
-    def call(self, inp):
+    def call(self, inp, mask=None):
+        if mask is not None:
+            mask = tf.cast(mask, tf.float32)
+            inp *= mask[:, :, None]
+
         # project and evaluate incoming inputs
         weights = self.act(tf.matmul(inp, self.projector) / self.scale)
         # feed forward
