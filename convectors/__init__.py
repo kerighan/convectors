@@ -263,10 +263,7 @@ class WordVectors:
             self.id2word = id2word
             self.weights = weights
 
-    def restrict(self, words):
-        pass
-
-    def fit_to_sequence(self, seq, oov="zero"):
+    def fit_to_sequence(self, seq):
         id2word = {i: word for word, i in seq.word2id.items()}
         dim = self.weights.shape[1]
         dtype = self.weights.dtype

@@ -48,9 +48,8 @@ class KNNGraph(Layer):
         G = nx.Graph()
         G.add_nodes_from(range(len(X)))
         G.add_edges_from(edges)
-        if self.verbose:
-            avg_degree = len(G.edges)/len(G.nodes)
-            print(f"avg_degree={avg_degree:.2f}")
+        avg_degree = len(G.edges)/len(G.nodes)
+        print(f"avg_degree={avg_degree:.2f}")
         return G
 
 
@@ -175,7 +174,6 @@ class AdaptiveDensityGraph(Layer):
         G = nx.Graph()
         G.add_nodes_from(range(len(X)))
         G.add_edges_from(edges)
-        # if self.verbose:
         avg_degree = len(G.edges)/len(G.nodes)
         print(f"avg_degree={avg_degree:.2f}")
         return G
@@ -190,12 +188,13 @@ class ExpGraph(Layer):
         self,
         input=None,
         output=None,
-        k=10,
+        k=100,
         algorithm="hnswlib",
-        min_sim=.01,
+        min_sim=.001,
         max_sim=.99,
-        threshold=.1,
+        threshold=.05,
         metric="l2",
+        centrifugal=True,
         name=None,
         verbose=True,
         parallel=False
@@ -207,6 +206,7 @@ class ExpGraph(Layer):
         self.min_sim = min_sim
         self.max_sim = max_sim
         self.threshold = threshold
+        self.centrifugal = centrifugal
 
     def process_series(self, series):
         X = to_matrix(series)
@@ -214,37 +214,45 @@ class ExpGraph(Layer):
         return G
 
     def build_graph(self, X):
-        from collections import defaultdict
-
         import networkx as nx
 
         labels, distances = get_hnswlib_nns(X, self.k)
+        scale = 1 / (1 + np.max(distances))
 
-        candidates = defaultdict(list)
+        density = np.zeros(X.shape[0])
+        candidates = []
         for i, (nns, dists) in enumerate(zip(labels, distances)):
-            sims = self.get_tanh_similarities(dists)
-            # for j, similarity in zip(nns, sims):
-            gap = np.argmax(np.abs(sims[1:] - sims[:-1]))
-            for j, similarity in zip(nns[:gap + 1], sims[:gap + 1]):
+            dists *= scale
+            sims, b = self.get_tanh_similarities(dists)
+            density[i] = b
+            for j, similarity in zip(nns, sims):
                 if i == j:
                     continue
-                pair = (i, j) if i < j else (j, i)
-                candidates[pair].append(similarity)
+                candidates.append((i, j, similarity))
+
+        if self.centrifugal:
+            def compare(i, j):
+                return i > j
+        else:
+            def compare(i, j):
+                return j > i
 
         edges = []
-        for (i, j), weights in candidates.items():
-            if len(weights) == 1:
-                weight = weights[0]
-            else:
-                weight_a, weight_b = weights
-                weight = weight_a + weight_b - weight_a*weight_b
+        for i, j, w in candidates:
+            density_i = density[i]
+            density_j = density[j]
+            weight = w * (2 * density_j) / (density_i + density_j)
             if weight < self.threshold:
                 continue
+
+            if compare(density_i, density_j):
+                continue
             edges.append((i, j, weight))
+
         G = nx.Graph()
         G.add_nodes_from(range(len(X)))
         G.add_weighted_edges_from(edges)
-        print(self.verbose)
+
         # if self.verbose:
         avg_degree = len(G.edges)/len(G.nodes)
         print(f"avg_degree={avg_degree:.2f}")
@@ -263,7 +271,7 @@ class ExpGraph(Layer):
         a = -log_m/(d_k**b)
 
         similarities = np.exp(-a*row**b)
-        return similarities
+        return similarities, b
 
     def get_tanh_similarities(self, row):
         d_k = row[-1]
@@ -283,7 +291,7 @@ class ExpGraph(Layer):
 
         a = np.arctanh(1 - self.min_sim) / (d_k**b)
         similarities = 1 - np.tanh(a*row**b)
-        return similarities
+        return similarities, b
 
 
 class Community(Layer):

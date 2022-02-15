@@ -571,6 +571,7 @@ class Transformer(Layer):
                       activation=self.weighted_activation))
 
         model.add(Dense(n_classes, activation="softmax"))
+        model.summary()
         return model
 
     def process_series(self, series):
