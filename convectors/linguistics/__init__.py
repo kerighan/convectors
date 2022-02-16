@@ -387,15 +387,15 @@ class LangDetect(Layer):
 
 def words_from(text):
     return re.findall(
-        r"([\w]+|['\U0001F300-\U0001F5FF'|'\U0001F600-\U0001F64F'|"
-        r"'\U0001F680-\U0001F6FF'|'\u2600-\u26FF\u2700-\u27BF'])",
+        r"([\w]+|[\U0001F300-\U0001F5FF|\U0001F600-\U0001F64F|"
+        r"\U0001F680-\U0001F6FF|\u2600-\u26FF\u2700-\u27BF])",
         text, re.UNICODE)
 
 
 def words_and_punctuation_from(text):
     return re.findall(
-        r"([\w]+|['\U0001F300-\U0001F5FF'|'\U0001F600-\U0001F64F'|"
-        r"'\U0001F680-\U0001F6FF'|'\u2600-\u26FF\u2700-\u27BF']|"
+        r"([\w]+|[\U0001F300-\U0001F5FF|\U0001F600-\U0001F64F|"
+        r"\U0001F680-\U0001F6FF|\u2600-\u26FF\u2700-\u27BF]|"
         r"[,?;.:\/!()\[\]'\"’\\><+-=])",
         text, re.UNICODE)
 

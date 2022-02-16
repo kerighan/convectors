@@ -345,3 +345,20 @@ def to_matrix(series):
         elif issparse(series[0]):
             series = vstack(series.tolist())
     return series
+
+
+def fit(model, nlp, series, y, batch_size=100, epochs=5):
+    import math
+    n = len(series)
+    n_batches = math.ceil(n / batch_size)
+
+    def get_data():
+        for _ in range(epochs):
+            for i in range(n_batches):
+                start = i * batch_size
+                end = (i + 1) * batch_size
+                X_batch = nlp(series.iloc[start:end])
+                y_batch = y[start:end]
+                yield X_batch, y_batch
+
+    model.fit(get_data(), epochs=5, steps_per_epoch=n_batches)
