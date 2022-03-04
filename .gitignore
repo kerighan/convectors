@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.sqlite
 
 # Distribution / packaging
 .Python
@@ -81,8 +82,7 @@ ipython_config.py
 
 # celery beat schedule file
 celerybeat-schedule
-
-# SageMath parsed files
+**/*.sqlite
 *.sage.py
 
 # Environments
