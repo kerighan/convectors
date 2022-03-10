@@ -186,10 +186,11 @@ class TFMLP(ClassifierLayer):
         del self.config
         self.model = model
 
-    def create_model(self, loss, n_classes):
-        from tensorflow.keras.layers import Dense, Dropout
+    def create_model(self, loss, n_classes, in_shape):
+        from tensorflow.keras.layers import Dense, Dropout, Input
         from tensorflow.keras.models import Sequential
         model = Sequential()
+        model.add(Input(shape=in_shape))
         if isinstance(self.hidden_layer_sizes, int):
             sizes = [self.hidden_layer_sizes]
         else:
@@ -218,22 +219,26 @@ class TFMLP(ClassifierLayer):
         X = self.get_numpy_matrix(series)
 
         # get train and test sets
-        X, y, X_test, y_test = balanced_train_test_split(
-            X, y, self.validation_split, self.balance)
+        if self.validation_split != 0:
+            X, y, X_test, y_test = balanced_train_test_split(
+                X, y, self.validation_split, self.balance)
         loss, n_classes = infer_crossentropy_loss_and_classes(y)
 
-        self.create_model(loss, n_classes)
+        self.create_model(loss, n_classes, X.shape[1:])
         if self.verbose:
             self.model.summary()
 
         # fit model
-        if self.metric == "val_loss":
-            save_best_model = SaveBestModel()
+        if self.validation_split != 0:
+            if self.metric == "val_loss":
+                save_best_model = SaveBestModel()
+            else:
+                save_best_model = SaveBestModel("val_accuracy", True)
+            self.model.fit(X, y, validation_data=(X_test, y_test),
+                           callbacks=[save_best_model], **self.options)
+            self.model.set_weights(save_best_model.best_weights)
         else:
-            save_best_model = SaveBestModel("val_accuracy", True)
-        self.model.fit(X, y, validation_data=(X_test, y_test),
-                       callbacks=[save_best_model], **self.options)
-        self.model.set_weights(save_best_model.best_weights)
+            self.model.fit(X, y, **self.options)
 
 
 class GradientBoosting(ClassifierLayer):
