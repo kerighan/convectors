@@ -28,31 +28,26 @@ class Vectorize(Layer):
         self.model_name = model
 
     def process_series(self, series):
-        import pickle
         from math import ceil
+
+        from ..utils import get_db, load_picture, resize
 
         preprocess_input, model = get_vectorizer(
             self.model_name, self.image_size)
 
         db_type = series[0].db_type
-        if db_type == "sqlitedict":
-            from sqlitedict import SqliteDict
-            db = SqliteDict(series[0].db_filename)
+        db_filename = series[0].db_filename
 
-            def load_picture(x):
-                try:
-                    res = pickle.loads(db[x.key])
-                    return res
-                except AttributeError:
-                    return np.zeros(shape=(1, 1, 1))
+        db = get_db(db_type, db_filename)
 
         n_step = ceil(series.shape[0] / self.batch_size)
         res = []
         for i in range(n_step):
             start = i * self.batch_size
             end = (i + 1) * self.batch_size
-            imgs = np.array([resize(load_picture(img), self.image_size)
-                             for img in series[start:end]])
+            imgs = np.array([resize(load_picture(
+                db_type, db, img), self.image_size)
+                for img in series[start:end]])
             features = get_features(imgs, model, preprocess_input)
             res.append(features)
         res = np.vstack(res)
@@ -81,19 +76,6 @@ def get_vectorizer(model_name, image_size):
         pooling='avg',
         input_shape=(image_size, image_size, 3))
     return [preprocess_input, model]
-
-
-def resize(x, image_size):
-    import cv2
-    if x.size == 1:
-        res = np.empty(shape=(image_size, image_size, 3))
-        res.fill(np.nan)
-        return res
-
-    x = cv2.resize(x, dsize=(
-        image_size, image_size), interpolation=cv2.INTER_CUBIC)
-
-    return x
 
 
 def get_features(x, model, preprocess_input):

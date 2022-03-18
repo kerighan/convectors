@@ -1,13 +1,8 @@
 # !/usr/bin/env python
 # -*- coding: utf8 -*-
-import io
-import os
-import pickle
 from dataclasses import dataclass
-from functools import wraps
 
 import numpy as np
-from PIL import Image
 
 from ... import Layer
 
@@ -30,8 +25,6 @@ class Fetch(Layer):
         name=None,
         db_dir="tmp",
         db_type="lmdb",
-        keys=None,
-        map_size=5*int(1e9),
         verbose=True,
         parallel=True
     ):
@@ -39,8 +32,6 @@ class Fetch(Layer):
 
         self.db_type = db_type
         self.db_dir = f"{db_dir}_{db_type}"
-        self.map_size = map_size
-        self.keys = keys
 
     def apply_sqlitedict(self, series):
         from sqlitedict import SqliteDict
@@ -67,23 +58,54 @@ class Fetch(Layer):
                 results.append(Picture(url, self.db_type, filename))
         return results
 
+    def apply_lmdb(self, series):
+        import lmdb
+
+        filename = f"{self.db_dir}"
+        map_size = 6 * int(1e9)  # max possible size of lmdb
+        self.env = lmdb.open(filename, map_size=map_size)
+
+        to_download = []
+        with self.env.begin() as txn:
+            keys_in = list(txn.cursor().iternext(values=False))
+
+        for url in series:
+            if url.encode("ascii") not in keys_in:
+                to_download.append(url)
+
+        def insert(url, img):
+            with self.env.begin(write=True) as txn:
+                txn.put(url.encode("ascii"), img)
+
+        thread_pool_downloader(to_download, insert)
+
+        # GET ALL IMAGES
+        with self.env.begin() as txn:
+            keys_in = list(txn.cursor().iternext(values=False))
+
+        results = []
+        for url in series:
+            if url.encode("ascii") not in keys_in:
+                results.append(np.nan)
+            else:
+                results.append(Picture(url, self.db_type, filename))
+        return results
+
+    # def apply_disk(self, series):
+    #     from glob import glob
+    #     filename = f"{self.db_dir}"
+
+    #     self.env = [file for file in glob(f"{filename}/*")]
+
     def apply(self, series, y=None):
         if self.db_type == "sqlitedict":
             return self.apply_sqlitedict(series)
 
+        if self.db_type == "lmdb":
+            return self.apply_lmdb(series)
 
-class ImageDB():
-    def __init__(self, image):
-        # Dimensions of image for reconstruction
-        self.channels = image.shape[2]
-        self.size = image.shape[:2]
-
-        self.image = image.tobytes()
-
-    def get_image(self):
-        """ Returns the image as a numpy array. """
-        image = np.frombuffer(self.image, dtype=np.uint8)
-        return image.reshape(*self.size, self.channels)
+        if self.db_type == "disk":
+            return self.apply_disk(series)
 
 
 # =============================================================================
@@ -91,6 +113,9 @@ class ImageDB():
 # =============================================================================
 
 def img_download(callback):
+    import io
+    import pickle
+
     import requests
     from PIL import Image
 
