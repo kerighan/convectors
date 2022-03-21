@@ -361,3 +361,42 @@ def get_hnswlib_nns(X, k):
 
     labels, distances = index.knn_query(X, k=k)
     return labels, distances
+
+
+def adamic_adar_rewire(G, k=2, avg_degree=10):
+    import networkx as nx
+    A = nx.adjacency_matrix(G)
+    degree = 1/np.log(np.array(A.sum(axis=1) + 1)).flatten()
+    # degree[np.isnan(degree)] = 0
+
+    id2node = dict(enumerate(G.nodes))
+    node2id = {node: i for i, node in id2node.items()}
+    neighbors = {}
+    for i, node in enumerate(G.nodes):
+        neighbors[i] = set(G.neighbors(node))
+
+    # reach farther
+    A **= k
+    # list edges
+    edges = []
+    indptr = A.indptr
+    indices = A.indices
+    n = len(indptr) - 1
+    for i in range(n):
+        neighbors_i = neighbors[i]
+
+        start, end = indices[i:i+2]
+        for index in range(start, end):
+            j = indices[index]
+            neighbors_j = neighbors[j]
+
+            adamic_adar = 0
+            for common_neighbor in neighbors_i.intersection(neighbors_j):
+                neighbor_id = node2id[common_neighbor]
+                adamic_adar += degree[neighbor_id]
+            edges.append((i, j, adamic_adar))
+    edges = sorted(edges, key=lambda x: x[2], reverse=True)[:avg_degree*n]
+    G = nx.Graph()
+    G.add_nodes_from(range(n))
+    G.add_weighted_edges_from(edges)
+    return G
