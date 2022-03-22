@@ -30,10 +30,11 @@ class FaceAnalyzor(Layer):
         self.image_size = image_size
 
     def process_series(self, series):
-        from deepface.DeepFace import analyze
-        from ..utils import get_db, load_picture, resize
         from math import ceil
-        import numpy as np
+
+        from deepface.DeepFace import analyze
+
+        from ..utils import get_db, load_picture
 
         db_type = series[0].db_type
         db_filename = series[0].db_filename
@@ -46,7 +47,7 @@ class FaceAnalyzor(Layer):
             start = i * self.batch_size
             end = (i + 1) * self.batch_size
             imgs = [load_picture(db_type, db, img)
-                        for img in series[start:end]]
+                    for img in series[start:end]]
             features = analyze(
                 imgs, actions=self.actions,
                 detector_backend=self.backend, enforce_detection=False)
@@ -88,11 +89,11 @@ class FaceFinder(Layer):
         self.metric = metric
 
     def process_series(self, series):
+        from math import ceil
+
         from deepface.DeepFace import find
 
         from ..utils import get_db, load_picture
-        from math import ceil
-        import numpy as np
 
         db_type = series[0].db_type
         db_filename = series[0].db_filename
@@ -109,7 +110,7 @@ class FaceFinder(Layer):
 
             features = find(
                 self.image, db_path=imgs, model_name=self.model,
-                enforce_detection=False, distance_metric = self.metric)
+                enforce_detection=False, distance_metric=self.metric)
 
             res.append(features)
 
@@ -136,9 +137,9 @@ class OCR(Layer):
         self.batch_size = batch_size
 
     def process_doc(self, series):
-        from ..utils import get_db, load_picture
-        from math import ceil
         import easyocr
+
+        from ..utils import get_db, load_picture
 
         reader = easyocr.Reader(['fr', 'en'], gpu=True)
 

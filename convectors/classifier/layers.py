@@ -1,12 +1,12 @@
-import tensorflow as tf
 from tensorflow.keras.layers import Layer
-from tensorflow.keras.regularizers import l1 as l1reg
+from tf.keras.callbacks import Callback
 
 
 class SelfAttention(Layer):
     def __init__(
             self, hidden_dim=20, n_heads=4, l1=1e-5,
             activation=None, **_):
+        import tensorflow as tf
         super(SelfAttention, self).__init__()
         self.hidden_dim = hidden_dim
         self.scale = int(hidden_dim**.5)
@@ -28,6 +28,8 @@ class SelfAttention(Layer):
             self.act = tf.nn.softmax
 
     def build(self, input_shape):
+        from tensorflow.keras.regularizers import l1 as l1reg
+
         input_length = int(input_shape[-2])
         embedding_dim = int(input_shape[-1])
 
@@ -48,6 +50,7 @@ class SelfAttention(Layer):
             regularizer=l1reg(self.l1))
 
     def call(self, input, mask=None):
+        import tensorflow as tf
         input += self.positional
 
         if mask is not None:
@@ -91,10 +94,11 @@ class SelfAttention(Layer):
         return cls(**config)
 
 
-class WeightedAttention(tf.keras.layers.Layer):
+class WeightedAttention(Layer):
     def __init__(
             self, hidden_dim=32, n_layers=1, l1=1e-5,
             activation="sigmoid", **kwargs):
+        import tensorflow as tf
         super(WeightedAttention, self).__init__()
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
@@ -116,6 +120,7 @@ class WeightedAttention(tf.keras.layers.Layer):
             self.act = tf.nn.softmax
 
     def build(self, input_shape):
+        from tensorflow.keras.regularizers import l1 as l1reg
         dim = int(input_shape[-1])
         self.projector = self.add_weight(
             "projector", shape=(dim, self.hidden_dim),
@@ -132,6 +137,7 @@ class WeightedAttention(tf.keras.layers.Layer):
             regularizer=l1reg(self.l1))
 
     def call(self, inp, mask=None):
+        import tensorflow as tf
         if mask is not None:
             mask = tf.cast(mask, tf.float32)
             inp *= mask[:, :, None]
@@ -163,7 +169,7 @@ class WeightedAttention(tf.keras.layers.Layer):
         return cls(**config)
 
 
-class SaveBestModel(tf.keras.callbacks.Callback):
+class SaveBestModel(Callback):
     def __init__(self, save_best_metric='val_loss', this_max=False):
         self.save_best_metric = save_best_metric
         self.max = this_max
@@ -195,6 +201,7 @@ class ACTS(Layer):
                  activation=None,
                  train_theta=True,
                  **kwargs):
+        import tensorflow as tf
         super().__init__(**kwargs)
         self.n_sample_points = n_sample_points
         self.minval = minval
@@ -206,6 +213,8 @@ class ACTS(Layer):
 
     def build(self, input_shape):
         import numpy as np
+        import tensorflow as tf
+        from tensorflow.keras.regularizers import l1 as l1reg
         input_length = input_shape[1]
         input_dim = input_shape[2]
         total_dim = 2 * self.n_sample_points * input_dim
@@ -242,6 +251,7 @@ class ACTS(Layer):
         self.input_dim = input_dim
 
     def call(self, input, mask=None):
+        import tensorflow as tf
         if mask is not None:
             mask = tf.cast(mask, tf.float32)
             input *= mask[:, :, None]
@@ -278,6 +288,7 @@ class MultiACTS(Layer):
                  activation=None,
                  train_theta=True,
                  **kwargs):
+        import tensorflow as tf
         super().__init__(**kwargs)
         self.n_sample_points = n_sample_points
         self.minval = minval
@@ -289,6 +300,7 @@ class MultiACTS(Layer):
 
     def build(self, input_shape):
         import numpy as np
+        import tensorflow as tf
         input_length = input_shape[1]
         input_dim = input_shape[2]
         total_dim = 2 * self.n_sample_points * input_dim
@@ -314,6 +326,7 @@ class MultiACTS(Layer):
         self.input_dim = input_dim
 
     def call(self, input, mask=None):
+        import tensorflow as tf
         if mask is not None:
             mask = tf.cast(mask, tf.float32)
             input *= mask[:, :, None]

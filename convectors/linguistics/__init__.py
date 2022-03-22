@@ -150,6 +150,63 @@ class Lemmatize(Layer):
         return [[self.stem(w) for w in s] for s in text]
 
 
+class NER(Layer):
+    parallel = True
+    trainable = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        lang="en",
+        include_tag=True,
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super(NER, self).__init__(
+            input, output, name, verbose, parallel)
+
+        self.lang = lang
+        self.include_tag = include_tag
+        self.reload()
+
+    def unload(self):
+        if hasattr(self, "word2ner"):
+            del self.word2ner
+        if hasattr(self, "kp"):
+            del self.kp
+
+    def reload(self, **_):
+        import os
+        import pickle
+
+        from flashtext import KeywordProcessor
+
+        db_fn = os.path.join(
+            os.path.dirname(__file__),
+            f"../ressources/ner/{self.lang}_ner.p")
+        with open(db_fn, "rb") as f:
+            self.word2ner = pickle.load(f)
+
+        self.kp = KeywordProcessor(case_sensitive=True)
+        for key in self.word2ner:
+            self.kp.add_keyword(key)
+
+    def ner(self, text):
+        found = self.kp.extract_keywords(text)
+        if self.include_tag:
+            return [(x, self.word2ner[x]) for x in found]
+        return found
+
+    def process_doc(self, text):
+        if len(text) == 0:
+            return []
+        if isinstance(text[0], str):
+            return self.ner(text)
+        return [[self.ner(w) for w in s] for s in text]
+
+
 Lemmatizer = Lemmatize
 
 

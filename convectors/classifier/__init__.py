@@ -3,7 +3,7 @@ import numpy as np
 from .. import Layer, to_matrix
 from .utils import tensorflow_shutup
 
-tensorflow_shutup()
+# tensorflow_shutup()
 
 
 class ClassifierLayer(Layer):
