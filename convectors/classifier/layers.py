@@ -52,13 +52,15 @@ class SelfAttention(Layer):
             "weight", shape=[self.n_heads * self.hidden_dim, embedding_dim],
             regularizer=l1reg(self.l1))
 
+    def compute_mask(self, inputs, mask=None):
+        return mask
+
     def call(self, input, mask=None):
         import tensorflow as tf
         input += self.positional
-
         if mask is not None:
-            mask = tf.cast(mask, tf.float32)
-            input *= mask[:, :, None]
+            mask = tf.expand_dims(tf.cast(mask, tf.float32), -1)
+            input *= mask
 
         results = []
         for i in range(self.n_heads):
@@ -75,6 +77,11 @@ class SelfAttention(Layer):
             # score vector
             score = tf.matmul(q, k) / self.scale
             score = tf.nn.softmax(score, axis=-1)
+
+            if mask is not None:
+                score *= mask
+                norm = tf.reduce_sum(score, keepdims=True, axis=1) + 1e-6
+                score /= norm
 
             result = tf.matmul(score, v)
             results.append(result)
@@ -139,11 +146,15 @@ class WeightedAttention(Layer):
             "evaluator", shape=(self.hidden_dim, 1), trainable=True,
             regularizer=l1reg(self.l1))
 
+    def compute_mask(self, _, mask=None):
+        return None
+
     def call(self, inp, mask=None):
         import tensorflow as tf
+
         if mask is not None:
-            mask = tf.cast(mask, tf.float32)
-            inp *= mask[:, :, None]
+            mask = tf.expand_dims(tf.cast(mask, tf.float32), -1)
+            inp *= mask
 
         # project and evaluate incoming inputs
         weights = self.act(tf.matmul(inp, self.projector) / self.scale)
@@ -154,6 +165,11 @@ class WeightedAttention(Layer):
 
         weights = self.act(tf.matmul(weights, self.evaluator) / self.scale)
         weights = tf.nn.softmax(weights, axis=-2)
+
+        if mask is not None:
+            weights *= mask
+            norm = tf.reduce_sum(weights, keepdims=True, axis=1) + 1e-12
+            weights /= norm
 
         result = weights * inp
         result = tf.math.reduce_sum(result, axis=1, keepdims=False)
@@ -213,68 +229,72 @@ class ACTS(Layer):
         self.l1 = l1
         self.activation = tf.keras.activations.get(activation)
         self.train_theta = train_theta
+        self.scale = encoder_dim**.5
 
     def build(self, input_shape):
-        import numpy as np
         import tensorflow as tf
         from tensorflow.keras.regularizers import l1 as l1reg
         input_length = input_shape[1]
         input_dim = input_shape[2]
-        total_dim = 2 * self.n_sample_points * input_dim
 
-        # self.theta = self.add_weight(
-        #     "theta", shape=[1, self.n_sample_points],
-        #     initializer=tf.random_uniform_initializer(
-        #         minval=self.minval, maxval=self.maxval),
-        #     regularizer=l1(1e-4))
-        self.theta = tf.Variable(np.linspace(
-            self.minval, self.maxval, self.n_sample_points
-        ).astype(np.float32)[None, :], trainable=self.train_theta)
-
-        # self.theta = self.add_weight(
-        #     "theta", shape=[input_dim, 1, self.n_sample_points],
-        #     initializer=tf.random_uniform_initializer(
-        #         minval=self.minval, maxval=self.maxval),
-        #     regularizer=l1(self.l1))
-
-        self.attention = self.add_weight(
-            "attention", shape=[self.encoder_dim, 1])
-
-        self.query = self.add_weight(
-            "query",
-            shape=[input_dim, self.encoder_dim],
+        self.theta = self.add_weight(
+            "theta", shape=[1, self.n_sample_points],
+            initializer=tf.random_uniform_initializer(
+                minval=self.minval, maxval=self.maxval),
             regularizer=l1reg(self.l1))
 
-        self.value = self.add_weight(
-            "value",
+        # self.theta = tf.Variable(np.linspace(
+        #     self.minval, self.maxval, self.n_sample_points
+        # ).astype(np.float32)[None, :], trainable=self.train_theta)
+
+        # self.value = self.add_weight(
+        #     "value", shape=[input_dim, self.encoder_dim],
+        #     regularizer=l1reg(self.l1))
+
+        # self.attention = self.add_weight(
+        #     "attention", shape=[input_dim, 1])
+
+        self.attention_1 = self.add_weight(
+            "attention_1",
             shape=[input_dim, self.encoder_dim],
+            regularizer=l1reg(self.l1))
+        self.attention_2 = self.add_weight(
+            "attention_2",
+            shape=[self.encoder_dim, 1],
+            regularizer=l1reg(self.l1))
+        self.alpha = self.add_weight(
+            "alpha",
+            shape=[1],
             regularizer=l1reg(self.l1))
 
         self.input_length = input_length
         self.input_dim = input_dim
 
+    def compute_mask(self, inputs, mask=None):
+        return None
+
     def call(self, input, mask=None):
         import tensorflow as tf
         if mask is not None:
-            mask = tf.cast(mask, tf.float32)
-            input *= mask[:, :, None]
-
-        # value = self.activation(tf.matmul(input, self.value))
-        # value = tf.transpose(input, perm=[0, 2, 1])
-
-        # query = tf.nn.sigmoid(tf.matmul(input, self.query))
+            mask = tf.expand_dims(tf.cast(mask, tf.float32), -1)
+            input *= mask
 
         # attention score
-        # score = tf.matmul(query, self.attention)
-        # score = tf.nn.softmax(score / (self.input_dim**.5),
-        #                       axis=-2)[:, None]
+        # score = tf.matmul(input, self.attention)
+        score = tf.nn.tanh(tf.matmul(input, self.attention_1) / self.scale)
+        score = tf.matmul(score, self.attention_2)
+
+        score = tf.nn.softmax((1 + self.alpha**2) * score, axis=-2)
+        if mask is not None:
+            score *= mask
+            norm = tf.reduce_sum(score, keepdims=True, axis=1) + 1e-12
+            score /= norm
+        score = score[:, :, :, None]
 
         # compute characteristic function
         phi = tf.matmul(input[:, :, :, None], self.theta)
-        # real = tf.reduce_sum(tf.cos(phi) * score, axis=-2)
-        # imag = tf.reduce_sum(tf.sin(phi) * score, axis=-2)
-        real = tf.reduce_mean(tf.cos(phi), axis=-2)
-        imag = tf.reduce_mean(tf.sin(phi), axis=-2)
+        real = tf.reduce_sum(tf.cos(phi) * score, axis=-2)
+        imag = tf.reduce_sum(tf.sin(phi) * score, axis=-2)
         vec = tf.concat([real, imag], axis=-1)
 
         vec = tf.reshape(vec, (-1, vec.shape[-1] * vec.shape[-2]))
@@ -299,12 +319,13 @@ class ACTS(Layer):
 class MultiACTS(Layer):
     def __init__(self,
                  encoder_dim=16,
-                 n_sample_points=20,
+                 n_sample_points=10,
                  minval=1e-3,
                  maxval=100,
                  l1=1e-4,
                  activation=None,
                  train_theta=True,
+                 residual=False,
                  **kwargs):
         import tensorflow as tf
         super().__init__(**kwargs)
@@ -315,13 +336,15 @@ class MultiACTS(Layer):
         self.l1 = l1
         self.train_theta = train_theta
         self.activation = tf.keras.activations.get(activation)
+        self.scale = encoder_dim**.5
+        self.residual = residual
 
     def build(self, input_shape):
         import numpy as np
         import tensorflow as tf
+        from tensorflow.keras.regularizers import l1 as l1reg
         input_length = input_shape[1]
         input_dim = input_shape[2]
-        total_dim = 2 * self.n_sample_points * input_dim
 
         # self.theta = self.add_weight(
         #     "theta", shape=[input_dim, self.n_sample_points],
@@ -329,16 +352,31 @@ class MultiACTS(Layer):
         #         minval=self.minval, maxval=self.maxval),
         #     regularizer=l1(1e-4))
 
-        # self.theta = self.add_weight(
-        #     "theta", shape=[input_dim, 1, self.n_sample_points],
-        #     initializer=tf.random_uniform_initializer(
-        #         minval=self.minval, maxval=self.maxval),
-        #     regularizer=l1(self.l1))
-        theta_init = np.tile(np.linspace(
-            self.minval, self.maxval, self.n_sample_points
-        ), input_dim).reshape((input_dim, 1, self.n_sample_points))
-        self.theta = tf.Variable(theta_init.astype(
-            np.float32), trainable=self.train_theta)
+        self.theta = self.add_weight(
+            "theta", shape=[input_dim, 1, self.n_sample_points],
+            initializer=tf.random_uniform_initializer(
+                minval=self.minval, maxval=self.maxval),
+            regularizer=l1reg(self.l1))
+
+        self.attention_1 = self.add_weight(
+            "attention_1",
+            shape=[input_dim, self.encoder_dim],
+            regularizer=l1reg(self.l1))
+        self.attention_2 = self.add_weight(
+            "attention_2",
+            shape=[self.encoder_dim, 1],
+            regularizer=l1reg(self.l1))
+        self.alpha = self.add_weight(
+            "alpha",
+            shape=[1],
+            regularizer=l1reg(self.l1))
+
+        # theta_init = np.tile(np.linspace(
+        #     self.minval, self.maxval, self.n_sample_points
+        # ), input_dim).reshape((input_dim, 1, self.n_sample_points))
+
+        # self.theta = tf.Variable(theta_init.astype(np.float32),
+        #                          trainable=self.train_theta)
 
         self.input_length = input_length
         self.input_dim = input_dim
@@ -346,17 +384,40 @@ class MultiACTS(Layer):
     def call(self, input, mask=None):
         import tensorflow as tf
         if mask is not None:
-            mask = tf.cast(mask, tf.float32)
-            input *= mask[:, :, None]
+            mask = tf.expand_dims(tf.cast(mask, tf.float32), -1)
+            input *= mask
 
+        # attention score
+        # score = tf.matmul(input, self.attention)
+        # score = tf.nn.softmax(score / (self.input_dim**.5), axis=-2)
+        # if mask is not None:
+        #     score *= mask
+        #     norm = tf.reduce_sum(score, keepdims=True, axis=1) + 1e-6
+        #     score /= norm
+        score = tf.nn.tanh(tf.matmul(input, self.attention_1) / self.scale)
+        score = tf.matmul(score, self.attention_2)
+
+        score = tf.nn.softmax((1 + self.alpha**2) * score, axis=-2)
+        if mask is not None:
+            score *= mask
+            norm = tf.reduce_sum(score, keepdims=True, axis=1) + 1e-12
+            score /= norm
+        score = score[:, :, :]
+
+        # concat
         vec = []
-        for i in range(self.encoder_dim):
-            phi = tf.matmul(input[:, i, :, None], self.theta[i])
-            real = tf.reduce_mean(tf.cos(phi), axis=-2)
-            imag = tf.reduce_mean(tf.sin(phi), axis=-2)
+        for i in range(self.input_dim):
+            phi = tf.matmul(input[:, :, i, None], self.theta[i])
+            # dim_score = score[:, :, i, None]
+            real = tf.reduce_sum(tf.cos(phi) * score, axis=-2)
+            imag = tf.reduce_sum(tf.sin(phi) * score, axis=-2)
             vec.append(real)
             vec.append(imag)
 
         vec = tf.concat(vec, axis=-1)
 
+        if self.residual:
+            res = tf.nn.tanh(tf.reduce_sum(input * score, axis=-2))
+            vec = tf.concat([vec, res], axis=-1)
+            return vec
         return vec
