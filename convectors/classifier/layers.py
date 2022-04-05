@@ -325,7 +325,7 @@ class MultiACTS(Layer):
                  l1=1e-4,
                  activation=None,
                  train_theta=True,
-                 residual=False,
+                 residual=True,
                  **kwargs):
         import tensorflow as tf
         super().__init__(**kwargs)
@@ -421,3 +421,19 @@ class MultiACTS(Layer):
             vec = tf.concat([vec, res], axis=-1)
             return vec
         return vec
+
+    def get_config(self):
+        config = super(MultiACTS, self).get_config()
+        config.update({"encoder_dim": self.encoder_dim,
+                       "n_sample_points": self.n_sample_points,
+                       "minval": self.minval,
+                       "maxval": self.maxval,
+                       "l1": self.l1,
+                       "train_theta": self.train_theta,
+                       "activation": self.activation,
+                       "residual": self.residual})
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

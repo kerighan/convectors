@@ -366,11 +366,12 @@ class Keras(Layer):
                     self.config, custom_objects=custom_objects)
         except ValueError:
             # add standard layers to Keras model if there's a ValueError
-            from .layers import SelfAttention, WeightedAttention
+            from .layers import MultiACTS, SelfAttention, WeightedAttention
             if custom_objects is None:
                 custom_objects = {}
             custom_objects["WeightedAttention"] = WeightedAttention
             custom_objects["SelfAttention"] = SelfAttention
+            custom_objects["MultiACTS"] = MultiACTS
             try:
                 model = KModel.from_config(
                     self.config, custom_objects=custom_objects)
