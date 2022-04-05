@@ -1,5 +1,5 @@
+from tensorflow.keras.callbacks import Callback
 from tensorflow.keras.layers import Layer
-from tf.keras.callbacks import Callback
 
 
 class SelfAttention(Layer):
@@ -30,7 +30,10 @@ class SelfAttention(Layer):
     def build(self, input_shape):
         from tensorflow.keras.regularizers import l1 as l1reg
 
-        input_length = int(input_shape[-2])
+        if input_shape[-2] is not None:
+            input_length = int(input_shape[-2])
+        else:
+            input_length = None
         embedding_dim = int(input_shape[-1])
 
         self.positional = self.add_weight(
@@ -276,6 +279,21 @@ class ACTS(Layer):
 
         vec = tf.reshape(vec, (-1, vec.shape[-1] * vec.shape[-2]))
         return vec
+
+    def get_config(self):
+        config = super(ACTS, self).get_config()
+        config.update({"encoder_dim": self.encoder_dim,
+                       "n_sample_points": self.n_sample_points,
+                       "minval": self.minval,
+                       "maxval": self.maxval,
+                       "l1": self.l1,
+                       "train_theta": self.train_theta,
+                       "activation": self.activation})
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
 
 
 class MultiACTS(Layer):

@@ -554,7 +554,7 @@ def pmi(
     return npmi_
 
 
-def cooc(series, window_size=3):
+def cooc(series, window_size=3, undirected=False):
     from collections import defaultdict
 
     cooc_ = defaultdict(int)
@@ -565,7 +565,13 @@ def cooc(series, window_size=3):
             for j in range(i+1, i + length):
                 target = words[j]
 
-                couple = (source, target)
+                if undirected:
+                    if source < target:
+                        couple = (source, target)
+                    else:
+                        couple = (target, source)
+                else:
+                    couple = (source, target)
                 cooc_[couple] += 1
     return cooc_
 

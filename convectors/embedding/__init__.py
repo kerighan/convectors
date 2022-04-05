@@ -233,6 +233,7 @@ class OneHot(Layer):
         to_categorical=False,
         threshold=None,
         unk_token=None,
+        max_features=None,
         verbose=True
     ):
         super(OneHot, self).__init__(input, output, name, verbose, False)
@@ -242,18 +243,28 @@ class OneHot(Layer):
         self.decode_mode = False
         self.threshold = threshold
         self.unk_token = unk_token
+        self.max_features = max_features
 
     def fit(self, series, y=None):
         import itertools
         from collections import Counter
-        if isinstance(series[0], list):
+
+        if isinstance(series, list):
+            zero_doc = series[0]
+        else:
+            zero_doc = series.iloc[0]
+        if isinstance(zero_doc, list):
             tf = Counter(itertools.chain(*series))
             self.multilabel = True
         else:
             tf = Counter(series)
             self.multilabel = False
 
-        self.class2id = {w: i for i, (w, _) in enumerate(tf.most_common())}
+        if self.max_features is None:
+            self.class2id = {w: i for i, (w, _) in enumerate(tf.most_common())}
+        else:
+            self.class2id = {w: i for i, (w, _) in enumerate(
+                tf.most_common(self.max_features))}
         self.id2class = {i: w for w, i in self.class2id.items()}
         self.n_features = len(self.class2id)
 
@@ -275,13 +286,19 @@ class OneHot(Layer):
                     X = np.zeros((N, n_features), dtype=np.bool_)
                     for i, classes in enumerate(series):
                         for class_ in classes:
-                            X[i, self.class2id[class_]] = 1
+                            c = self.class2id.get(class_, None)
+                            if c is None:
+                                continue
+                            X[i, c] = 1
                 else:
                     X = []
                     for i, classes in enumerate(series):
                         tmp = []
                         for class_ in classes:
-                            tmp.append(self.class2id[class_])
+                            c = self.class2id.get(class_, None)
+                            if c is None:
+                                continue
+                            tmp.append(c)
                         X.append(tmp)
         else:
             if not self.multilabel:

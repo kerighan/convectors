@@ -136,3 +136,26 @@ class NER2(HuggingFaceLayer):
             [(it["word"], it["entity_group"]) for it in doc]
             for doc in res
         ]
+
+
+class SentenceTransformer(HuggingFaceLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        document_wise=False
+    ):
+        super().__init__(
+            input, output, name, verbose, document_wise)
+
+    def reload(self):
+        from sentence_transformers import SentenceTransformer
+        self.nlp = SentenceTransformer(
+            'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+
+    def process_series(self, series):
+        if not isinstance(series, list):
+            series = list(series)
+        return self.nlp.encode(series)
