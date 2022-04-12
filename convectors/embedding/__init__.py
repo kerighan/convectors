@@ -304,18 +304,32 @@ class OneHot(Layer):
             if not self.multilabel:
                 if len(series.shape) == 2:
                     if self.threshold is None:
+                        x_nan, _ = np.where(np.isnan(series))
+                        x_nan = np.unique(x_nan)
+
                         X = np.argmax(series, axis=1)
                         X = [self.id2class[c] for c in X]
+                        if self.unk_token is not None:
+                            for idx in x_nan:
+                                X[idx] = self.unk_token
+                        else:
+                            for idx in x_nan:
+                                X[idx] = None
                     else:
                         t = self.threshold
                         assert self.unk_token is not None
+
+                        x_nan, _ = np.where(np.isnan(series))
+                        x_nan = np.unique(x_nan)
+
                         X = np.argmax(series, axis=1)
                         max_list = np.max(series, axis=1)
                         X = [
                             self.id2class[c] if m >= t else self.unk_token
                             for c, m in zip(X, max_list)
-
                         ]
+                        for idx in x_nan:
+                            X[idx] = self.unk_token
                 elif len(series.shape) == 1:
                     X = [self.id2class[c] for c in series]
                 else:

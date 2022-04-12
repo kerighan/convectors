@@ -231,14 +231,23 @@ class Layer:
             dill.dump(self, f)
 
 
-class WordVectors:
+class WordVectors(Layer):
+    parallel = False
+    trainable = False
+    document_wise = False
+
     def __init__(
         self,
         model=None,
         word2id=None,
         id2word=None,
-        weights=None
+        weights=None,
+        name=None,
+        verbose=True,
+        parallel=False
     ):
+        super().__init__(None, None, name, verbose, parallel)
+
         if model is not None:
             from tqdm import tqdm
             self.id2word = {}
@@ -296,6 +305,20 @@ class WordVectors:
             self.weights /= (
                 np.linalg.norm(self.weights, axis=1)[:, None].clip(1e-6, None)
             )
+
+    def process_series(self, series):
+        dim = self.weights.shape[1]
+        dtype = self.weights.dtype
+        nan = np.empty(dim, dtype=dtype)
+        nan[:] = np.nan
+        X = []
+        for x in series:
+            idx = self.word2id.get(x)
+            if idx is not None:
+                X.append(self.weights[idx])
+            else:
+                X.append(nan)
+        return np.array(X)
 
     def save(self, filename):
         import dill
