@@ -219,6 +219,8 @@ class ACTS(Layer):
                  l1=1e-4,
                  activation=None,
                  train_theta=True,
+                 residual=True,
+                 learn_positional=True,
                  **kwargs):
         import tensorflow as tf
         super().__init__(**kwargs)
@@ -230,6 +232,8 @@ class ACTS(Layer):
         self.activation = tf.keras.activations.get(activation)
         self.train_theta = train_theta
         self.scale = encoder_dim**.5
+        self.residual = residual
+        self.learn_positional = learn_positional
 
     def build(self, input_shape):
         import tensorflow as tf
@@ -267,6 +271,10 @@ class ACTS(Layer):
             shape=[1],
             regularizer=l1reg(self.l1))
 
+        if self.learn_positional:
+            self.positional = self.add_weight(
+                "positional", shape=[input_length, input_dim])
+
         self.input_length = input_length
         self.input_dim = input_dim
 
@@ -274,6 +282,9 @@ class ACTS(Layer):
         return None
 
     def call(self, input, mask=None):
+        if self.learn_positional:
+            input += self.positional
+
         import tensorflow as tf
         if mask is not None:
             mask = tf.expand_dims(tf.cast(mask, tf.float32), -1)
@@ -298,6 +309,13 @@ class ACTS(Layer):
         vec = tf.concat([real, imag], axis=-1)
 
         vec = tf.reshape(vec, (-1, vec.shape[-1] * vec.shape[-2]))
+
+        if self.residual:
+            res = tf.nn.tanh(tf.reduce_sum(
+                input * score[:, :, 0], axis=-2, keepdims=False))
+            # print(input.shape, res.shape, vec.shape, score.shape)
+            vec = tf.concat([vec, res], axis=-1)
+            return vec
         return vec
 
     def get_config(self):
@@ -308,7 +326,8 @@ class ACTS(Layer):
                        "maxval": self.maxval,
                        "l1": self.l1,
                        "train_theta": self.train_theta,
-                       "activation": self.activation})
+                       "activation": self.activation,
+                       "residual": self.residual})
         return config
 
     @classmethod
@@ -326,6 +345,7 @@ class MultiACTS(Layer):
                  activation=None,
                  train_theta=True,
                  residual=True,
+                 learn_positional=True,
                  **kwargs):
         import tensorflow as tf
         super().__init__(**kwargs)
@@ -338,6 +358,7 @@ class MultiACTS(Layer):
         self.activation = tf.keras.activations.get(activation)
         self.scale = encoder_dim**.5
         self.residual = residual
+        self.learn_positional = learn_positional
 
     def build(self, input_shape):
         import numpy as np
@@ -371,6 +392,10 @@ class MultiACTS(Layer):
             shape=[1],
             regularizer=l1reg(self.l1))
 
+        if self.learn_positional:
+            self.positional = self.add_weight(
+                "positional", shape=[input_length, input_dim])
+
         # theta_init = np.tile(np.linspace(
         #     self.minval, self.maxval, self.n_sample_points
         # ), input_dim).reshape((input_dim, 1, self.n_sample_points))
@@ -382,6 +407,9 @@ class MultiACTS(Layer):
         self.input_dim = input_dim
 
     def call(self, input, mask=None):
+        if self.learn_positional:
+            input += self.positional
+
         import tensorflow as tf
         if mask is not None:
             mask = tf.expand_dims(tf.cast(mask, tf.float32), -1)
@@ -431,7 +459,8 @@ class MultiACTS(Layer):
                        "l1": self.l1,
                        "train_theta": self.train_theta,
                        "activation": self.activation,
-                       "residual": self.residual})
+                       "residual": self.residual,
+                       "learn_positional": self.learn_positional})
         return config
 
     @classmethod
