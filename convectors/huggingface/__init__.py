@@ -144,6 +144,35 @@ class SentenceTransformer(HuggingFaceLayer):
         input=None,
         output=None,
         name=None,
+        lang=None,
+        verbose=True,
+        document_wise=False
+    ):
+        self.lang = lang
+        super().__init__(
+            input, output, name, verbose, document_wise)
+
+    def reload(self):
+        from sentence_transformers import SentenceTransformer as ST
+        if self.lang == "fr":
+            # self.nlp = ST('lincoln/flaubert-mlsum-topic-classification')
+            self.nlp = ST('flaubert/flaubert_base_cased')
+        else:
+            self.nlp = ST(
+                'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+
+    def process_series(self, series):
+        if not isinstance(series, list):
+            series = list(series)
+        return self.nlp.encode(series)
+
+
+class Sentiment(HuggingFaceLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
         verbose=True,
         document_wise=False
     ):
@@ -151,11 +180,23 @@ class SentenceTransformer(HuggingFaceLayer):
             input, output, name, verbose, document_wise)
 
     def reload(self):
-        from sentence_transformers import SentenceTransformer
-        self.nlp = SentenceTransformer(
-            'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+        from transformers import (AutoModelForSequenceClassification,
+                                  AutoTokenizer, pipeline)
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            "nlptown/bert-base-multilingual-uncased-sentiment")
+
+        model = AutoModelForSequenceClassification.from_pretrained(
+            "nlptown/bert-base-multilingual-uncased-sentiment")
+        self.nlp = pipeline("sentiment-analysis", model=model,
+                            tokenizer=tokenizer)
 
     def process_series(self, series):
         if not isinstance(series, list):
             series = list(series)
-        return self.nlp.encode(series)
+        res = self.nlp(series)
+        stars = []
+        for item in res:
+            label = item["label"]
+            stars.append(int(label[:1]))
+        return stars
