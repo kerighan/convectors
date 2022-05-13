@@ -582,3 +582,57 @@ def ngram(xs, n=3, func=lambda x: "".join(x)):
         for _ in range(i + 1):
             next(t, None)
     return [func(it) for it in zip(*ts)]
+
+
+def pmi_graph(
+    series, window_size=5, min_count=2, threshold=.1, remove_isolates=True
+):
+    from collections import Counter
+
+    import networkx as nx
+    triplets = pmi(series, window_size=window_size, min_count=min_count,
+                   undirected=True, normalize=True, minimum=threshold)
+
+    counts = Counter(itertools.chain(*series))
+
+    edges = []
+    for (a, b), w in triplets.items():
+        edges.append((a, b, w))
+    G = nx.Graph()
+    G.add_weighted_edges_from(edges)
+
+    if not remove_isolates:
+        G.add_nodes_from(counts.keys())
+
+    sizes = {}
+    for node in G.nodes:
+        sizes[node] = counts[node]
+    nx.set_node_attributes(G, sizes, name="size")
+    return G
+
+
+def cooc_graph(
+    series, window_size=5, min_count=2, remove_isolates=True
+):
+    from collections import Counter
+
+    import networkx as nx
+    triplets = cooc(series, window_size=window_size, undirected=True)
+
+    counts = Counter(itertools.chain(*series))
+
+    edges = []
+    for (a, b), w in triplets.items():
+        if w > min_count:
+            edges.append((a, b, w))
+    G = nx.Graph()
+    G.add_weighted_edges_from(edges)
+
+    if not remove_isolates:
+        G.add_nodes_from(counts.keys())
+
+    sizes = {}
+    for node in G.nodes:
+        sizes[node] = counts[node]
+    nx.set_node_attributes(G, sizes, name="size")
+    return G

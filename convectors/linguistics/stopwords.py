@@ -1,4 +1,10 @@
 stopwords = {
+    "url": {
+      "t",
+      "co",
+      "https",
+      "http"
+    },
     "fr": {
         "a",
         "abord",
