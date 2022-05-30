@@ -4,5 +4,6 @@ name2regex = {
               r"'\U0001F680-\U0001F6FF'|'\u2600-\u26FF\u2700-\u27BF']"),
     "hashtag": r"(\#[a-zA-Z0-9_]+\b)",
     "mention": r"(\@[a-zA-Z0-9_]+\b)",
-    "email": r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)"
+    "email": r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)",
+    "coin": r"(\$[a-zA-Z]+\b)"
 }

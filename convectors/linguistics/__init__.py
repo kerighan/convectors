@@ -150,6 +150,90 @@ class Lemmatize(Layer):
         return [[self.stem(w) for w in s] for s in text]
 
 
+class SubwordTokenize(Layer):
+    parallel = True
+    trainable = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        lang="fr",
+        alpha=.002,
+        lower=True,
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super(SubwordTokenize, self).__init__(
+            input, output, name, verbose, parallel)
+
+        self.lang = lang
+        self.lower = lower
+        self.alpha = alpha
+        self.reload()
+
+    def unload(self):
+        if hasattr(self, "p"):
+            del self.p
+
+    def reload(self, **_):
+        import os
+        import pickle
+
+        if self.lower:
+            db_fn = os.path.join(
+                os.path.dirname(__file__),
+                f"../ressources/cooc/{self.lang}_cooc_lower.p")
+        else:
+            db_fn = os.path.join(
+                os.path.dirname(__file__),
+                f"../ressources/cooc/{self.lang}_cooc.p")
+        with open(db_fn, "rb") as f:
+            self.p = pickle.load(f)
+
+    def process_doc(self, sentence):
+        if self.lower:
+            sentence = sentence.lower()
+        chains = []
+        c_0 = sentence[0]
+        chain = ["_", c_0]
+        chain_p = 1
+        for c_1 in sentence[1:]:
+            if c_1 == " ":
+                if len(chain) > 0:
+                    if chain != ["_", "_"] or chain != ["_"]:
+                        chains.append("".join(chain) + "_")
+                chain = ["_"]
+                chain_p = 1
+            elif c_1 in """!"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~""":
+                if len(chain) > 0:
+                    if chain != ["_", "_"] or chain != ["_"]:
+                        chains.append("".join(chain) + "_")
+                chains.append(c_1)
+                chain = ["_"]
+                chain_p = 1
+
+            else:
+                if c_0 == "_":
+                    val = 1
+                else:
+                    val = self.p.get((c_0, c_1), 0)
+                chain_p *= val
+                if chain_p > self.alpha:
+                    chain.append(c_1)
+                else:
+                    if chain != ["_", "_"] or chain != ["_"]:
+                        chains.append("".join(chain))
+                    chain_p = 1
+                    chain = [c_1]
+            c_0 = c_1
+        if len(chain) > 0:
+            chains.append("".join(chain) + "_")
+        chains = [chain for chain in chains if chain not in ["__", "_"]]
+        return chains
+
+
 class NER(Layer):
     parallel = True
     trainable = False
@@ -255,18 +339,20 @@ class Phrase(Layer):
         self,
         input=None,
         output=None,
-        min_count=10,
-        threshold=.5,
+        min_cooc=10,
+        threshold=.7,
         max_len=float("inf"),
+        join_char=" ",
         bigram=False,
         name=None,
         verbose=True,
         parallel=False
     ):
         super(Phrase, self).__init__(input, output, name, verbose, parallel)
-        self.min_count = min_count
+        self.min_cooc = min_cooc
         self.threshold = threshold
         self.bigram = bigram
+        self.join_char = join_char
         self.max_len = max_len
         if bigram:
             self.process_doc = self.process_bigram
@@ -276,8 +362,8 @@ class Phrase(Layer):
     def fit(self, series, *args, y=None):
         self.pmi = set(pmi(
             series, window_size=2,
-            minimum=self.threshold,
-            min_count=self.min_count,
+            threshold=self.threshold,
+            min_cooc=self.min_cooc, undirected=False,
             normalize=True).keys())
 
     def process_bigram(self, text):
@@ -288,7 +374,7 @@ class Phrase(Layer):
                 skip = False
                 continue
             elif (word_a, word_b) in self.pmi:
-                res.append(f"{word_a}_{word_b}")
+                res.append(f"{word_a}{self.join_char}{word_b}")
                 skip = True
             else:
                 res.append(word_a)
@@ -310,11 +396,11 @@ class Phrase(Layer):
             else:
                 if len(chain) >= self.max_len:
                     continue
-                words.append("_".join(chain))
+                words.append(self.join_char.join(chain))
                 chain = [word]
             last_word = word
         if 0 < len(chain) < self.max_len:
-            words.append("_".join(chain))
+            words.append(self.join_char.join(chain))
         return words
 
 
@@ -508,50 +594,21 @@ def tokenize(
 
 
 def pmi(
-        series, window_size=3, min_count=2, minimum=0.6,
-        normalize=False, undirected=False):
-    import math
-    from collections import Counter, defaultdict
-
-    # compute freq
-    freq = Counter(itertools.chain(*series))
-    N = len(series)
-    M = N * window_size
-
-    cooc_ = defaultdict(int)
-    for words in series.tolist():
-        for i in range(len(words)):
-            source = words[i]
-            length = min(len(words) - i, window_size)
-            for j in range(i+1, i + length):
-                target = words[j]
-
-                if undirected:
-                    if source < target:
-                        couple = (source, target)
-                    else:
-                        couple = (target, source)
-                else:
-                    couple = (source, target)
-
-                cooc_[couple] += 1
-
-    npmi_ = {}
-    for couple, count in cooc_.items():
-        if count < min_count:
-            continue
-        x, y = couple
-        p_x = freq[x]
-        p_y = freq[y]
-        p_xy = count / M
-        prod = p_x * p_y / (N*N)
-        if normalize:
-            npmi_value = math.log(prod) / math.log(p_xy) - 1
-        else:
-            npmi_value = math.log(p_xy / prod)
-        if npmi_value > minimum:
-            npmi_[couple] = npmi_value
-    return npmi_
+    series, window_size=3, undirected=False, min_cooc=2,
+    threshold=None, normalize=True
+):
+    from ..utils import PairCounter
+    pair_counts = PairCounter(undirected=undirected)
+    pair_counts.count(series)
+    for doc in series:
+        for window in ngram(doc, window_size, func=lambda x: x):
+            src = window[0]
+            for i in range(1, len(window)):
+                tgt = window[i]
+                pair_counts.increment(src, tgt)
+    edges = pair_counts.get_pmi(
+        normalize=normalize, threshold=threshold, min_cooc=min_cooc)
+    return edges
 
 
 def cooc(series, window_size=3, undirected=False):
