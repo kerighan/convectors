@@ -60,6 +60,117 @@ class TfIdf(VectorizerLayer):
             **kwargs)
 
 
+class OddsVectorizer(Layer):
+    parallel = False
+    trainable = True
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        max_features=None,
+        sparse=True,
+        name=None,
+        verbose=True,
+        **kwargs,
+    ):
+        super().__init__(input, output, name, verbose)
+        self.max_features = max_features
+
+    def fit(self, documents, y=None):
+        import itertools
+        from collections import Counter
+        self.tf = Counter(itertools.chain(*documents))
+        if self.max_features is not None:
+            self.tf = dict(self.tf.most_common(self.max_features))
+        self.token2id = {token: i for i, token in enumerate(self.tf.keys())}
+        self.dim = len(self.token2id)
+        self.total_count = sum(self.tf.values())
+
+    def fit_transform(self, documents):
+        self.fit(documents)
+        X = self.transform(documents)
+        return X
+
+    def process_series(self, series):
+        from scipy.sparse import csr_matrix
+        from sklearn.preprocessing import normalize
+
+        xs, ys, data = [], [], []
+        for i, doc in enumerate(series):
+            xs_, ys_, data_ = self.vectorize(doc, i)
+            xs.extend(xs_)
+            ys.extend(ys_)
+            data.extend(data_)
+
+        X = csr_matrix((data, (xs, ys)),
+                       dtype=float,
+                       shape=(len(series), self.dim))
+        normalize(X, axis=1, norm="l2", copy=False)
+        return X
+
+    def get_graph(
+        self, documents, threshold=2, pmi_threshold=.5, window_size=5
+    ):
+        from collections import Counter
+
+        import networkx as nx
+        from convectors.linguistics import pmi
+
+        edges = []
+        for i, doc in enumerate(documents):
+            count = Counter(doc)
+            count_total = sum(count.values())
+            for word, tf in count.items():
+                if word not in self.tf:
+                    continue
+                odds = self.get_low_odds(
+                    tf, count_total, self.tf[word], self.total_count)
+                if odds < threshold:
+                    continue
+                edges.append((i, word, np.log(odds)))
+
+        pmi_ = pmi(documents, undirected=True,
+                   threshold=pmi_threshold, window_size=window_size)
+        for (a, b), w in pmi_.items():
+            if a in self.tf and b in self.tf:
+                edges.append((a, b, w))
+
+        G = nx.Graph()
+        G.add_weighted_edges_from(edges)
+        return G
+
+    def vectorize(self, doc, i):
+        from collections import Counter
+        count = Counter(doc)
+        count_total = sum(count.values())
+        xs, ys, data = [], [], []
+        for word, tf in count.items():
+            if word not in self.tf:
+                continue
+            odds = self.get_low_odds(
+                tf, count_total, self.tf[word], self.total_count)
+            if odds <= 1:
+                continue
+            xs.append(i)
+            ys.append(self.token2id[word])
+            data.append(np.log(odds))
+        return xs, ys, data
+
+    def get_low_odds(self, a, c, b, d):
+        eps = 1e-6
+        c = max(c - a, eps)
+        d = max(d - b, eps)
+        a = max(a, eps)
+        b = max(b, eps)
+        odds_ratio = (a/c) / (b/d)
+
+        uncertainty = np.sqrt(1/a+1/b+1/c+1/d)
+        low = odds_ratio * np.exp(-1.96*uncertainty)
+        return low
+
+
 class CountVectorizer(VectorizerLayer):
     def __init__(
         self,
