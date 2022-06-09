@@ -123,3 +123,28 @@ class UMAP(ReduceLayer):
             n_neighbors=n_neighbors,
             min_dist=min_dist,
             **kwargs)
+
+
+class RandomProjection(ReduceLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        n_components=2,
+        name=None,
+        verbose=True,
+        **kwargs,
+    ):
+        super().__init__(input, output, name, verbose)
+        self.n_components = n_components
+
+    def fit(self, series, y=None):
+        import numpy as np
+        X = to_matrix(series)
+        dim = X.shape[1]
+        self.V = np.random.normal(
+            loc=0, scale=1./dim, size=(dim, self.n_components))
+
+    def process_series(self, series):
+        U = to_matrix(series) @ self.V
+        return U

@@ -209,7 +209,7 @@ class TFMLP(ClassifierLayer):
         X = to_matrix(series)
         if issparse(X):
             X = np.array(X.todense())
-        return self.model.predict(X)
+        return self.model.predict(X, verbose=False)
 
     def fit(self, series, y=None):
         from .layers import SaveBestModel
@@ -388,7 +388,7 @@ class Keras(Layer):
         X = to_matrix(series)
         if issparse(X):
             X = np.array(X.todense())
-        return self.model.predict(X)
+        return self.model.predict(X, verbose=False)
 
     def fit(self, series, y=None):
         from .layers import SaveBestModel
