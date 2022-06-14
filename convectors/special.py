@@ -1,6 +1,6 @@
 import re
 
-from . import Layer
+from . import Layer, to_matrix
 
 # =============================================================================
 # Layers
@@ -82,3 +82,24 @@ class DomainName(Layer):
             elif len(res) == 0:
                 return
             return res
+
+
+class Argmax(Layer):
+    parallel = False
+    trainable = False
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        parallel=False,
+        axis=-1
+    ):
+        super().__init__(input, output, name, verbose, parallel)
+        self.axis = axis
+
+    def process_series(self, series):
+        return to_matrix(series).argmax(axis=self.axis)
