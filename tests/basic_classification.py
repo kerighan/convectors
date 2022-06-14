@@ -1,4 +1,4 @@
-from convectors.layers import Tokenize, Snowball, TfIdf, SVD, SVM
+from convectors.layers import SVD, SVM, Snowball, TfIdf, Tokenize
 from sklearn.datasets import fetch_20newsgroups
 
 # load data
@@ -13,8 +13,7 @@ nlp += SVD(n_components=400)
 nlp += SVM()
 
 # fit and train model with just one call
-nlp(training_set.data,
-    y=training_set.target)
+nlp(training_set.data, y=training_set.target)
 
 # use trained model for inference
 y_pred = nlp(testing_set.data)

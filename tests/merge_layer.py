@@ -16,5 +16,3 @@ model = Merge(left_model, right_model)
 model += SVD(n_components=10)
 
 X = model(training_set, training_set)
-
-print(X.shape)
