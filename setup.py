@@ -9,7 +9,7 @@ with open(README_FILENAME) as f:
 
 setuptools.setup(
     name="convectors",
-    version="0.1.0",
+    version="0.1.1",
     author="Maixent Chenebaux",
     description=("End-to-end NLP package for seamless integration of "
                  "Pandas Series, DataFrame and Keras model"),
