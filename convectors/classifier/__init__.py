@@ -1,9 +1,6 @@
 import numpy as np
 
 from .. import Layer, to_matrix
-from .utils import tensorflow_shutup
-
-# tensorflow_shutup()
 
 
 class ClassifierLayer(Layer):
@@ -234,7 +231,8 @@ class TFMLP(ClassifierLayer):
                 save_best_model = SaveBestModel()
             else:
                 save_best_model = SaveBestModel("val_accuracy", True)
-            self.model.fit(X, y, validation_data=(X_test, y_test),
+            self.model.fit(X, y,
+                           validation_data=(X_test, y_test),
                            callbacks=[save_best_model], **self.options)
             self.model.set_weights(save_best_model.best_weights)
         else:
