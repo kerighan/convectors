@@ -573,10 +573,10 @@ class Transformer(Layer):
                     attention_activation=self.encoder_activation,
                     attention_type=SeqSelfAttention.ATTENTION_TYPE_MUL),
                 layer_num=self.n_heads,))
-            model.add(Reshape(
-                (input_len, embedding_dim * self.n_heads)))
             model.add(BatchNormalization())
 
+        model.add(Reshape(
+            (input_len, embedding_dim * self.n_heads)))
         # weighted attention layer
         model.add(WeightedAttention(
             self.weighted_dim, self.n_weighted, self.l1,
