@@ -364,13 +364,13 @@ class Keras(Layer):
                     self.config, custom_objects=custom_objects)
         except ValueError:
             # add standard layers to Keras model if there's a ValueError
-            from .layers import MultiACTS, SelfAttention, WeightedAttention
+            from .layers import SelfAttention, WeightedAttention
             if custom_objects is None:
                 custom_objects = {}
             custom_objects["WeightedAttention"] = WeightedAttention
             custom_objects["SelfAttention"] = SelfAttention
-            custom_objects["MultiACTS"] = MultiACTS
             try:
+                print(self.config)
                 model = KModel.from_config(
                     self.config, custom_objects=custom_objects)
             except KeyError:
@@ -473,14 +473,17 @@ class Transformer(Layer):
         del self.model
 
     def reload(self, **_):
+        from keras_multi_head import MultiHead
+        from keras_self_attention import SeqSelfAttention
         from tensorflow.keras.models import Model as KModel
         from tensorflow.keras.models import Sequential
 
-        from .layers import SelfAttention, WeightedAttention
+        from .layers import WeightedAttention
 
         custom_objects = {
-            "SelfAttention": SelfAttention,
-            "WeightedAttention": WeightedAttention
+            "WeightedAttention": WeightedAttention,
+            "SeqSelfAttention": SeqSelfAttention,
+            "MultiHead": MultiHead
         }
         try:
             model = KModel.from_config(
@@ -537,10 +540,11 @@ class Transformer(Layer):
         input_len, embedding_dim, n_features, n_classes
     ):
         from tensorflow.keras.layers import (Activation, BatchNormalization,
-                                             Dense, Embedding, InputLayer)
+                                             Dense, Embedding, Flatten,
+                                             InputLayer, Reshape)
         from tensorflow.keras.models import Sequential
 
-        from .layers import SelfAttention, WeightedAttention
+        from .layers import WeightedAttention
         model = Sequential()
         model.add(InputLayer(input_shape=(input_len,)))
 
@@ -560,9 +564,17 @@ class Transformer(Layer):
 
         # self attention layers
         for _ in range(self.n_encoders):
-            model.add(SelfAttention(self.encoder_dim,
-                      self.n_heads, self.l1,
-                      activation=self.encoder_activation))
+            from keras_multi_head import MultiHead
+            from keras_self_attention import SeqSelfAttention
+
+            model.add(MultiHead(
+                SeqSelfAttention(
+                    self.encoder_dim,
+                    attention_activation=self.encoder_activation,
+                    attention_type=SeqSelfAttention.ATTENTION_TYPE_MUL),
+                layer_num=self.n_heads,))
+            model.add(Reshape(
+                (input_len, embedding_dim * self.n_heads)))
             model.add(BatchNormalization())
 
         # weighted attention layer
