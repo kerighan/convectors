@@ -25,7 +25,12 @@ class SplitHashtag(Layer):
 
         # create document processing partial function
     def process_doc(self, doc):
-        return " ".join([h for h in re.split('([A-Z][a-z]+)', doc) if h])
+        return re.sub(
+            r'#[a-z]\S*',
+            lambda m: ' '.join(re.findall(
+                '[A-Z][^A-Z]*|[a-z][^A-Z]*', m.group().lstrip('#'))),
+            doc,
+        )
 
 
 class Lambda(Layer):
