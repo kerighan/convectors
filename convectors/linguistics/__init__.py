@@ -523,6 +523,61 @@ class LangDetect(Layer):
             return None
 
 
+class FreqFilter(Layer):
+    parallel = True
+    trainable = True
+    document_wise = True
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        min_df=None,
+        max_df=None,
+        verbose=True,
+        parallel=False
+    ):
+        super().__init__(input, output, name, verbose, parallel)
+        self.max_df = max_df
+        self.min_df = min_df
+
+    def fit(self, series, y=None):
+        from collections import Counter
+        tf = Counter()
+        df = Counter()
+        n_tokens = 0
+        n_docs = len(series)
+
+        for doc in series:
+            visited = set()
+            n_tokens += len(doc)
+            for token in doc:
+                if token not in visited:
+                    df[token] += 1
+                tf[token] += 1
+
+        self.tf = tf
+        self.df = df
+        if isinstance(self.max_df, float):
+            self.max_df = int(round(self.max_df * n_docs))
+        if isinstance(self.min_df, float):
+            self.min_df = int(round(self.min_df * n_docs))
+
+    def process_doc(self, doc):
+        res = []
+        for token in doc:
+            token_df = self.df[token]
+            if self.max_df is not None:
+                if token_df > self.max_df:
+                    continue
+            if self.min_df is not None:
+                if token_df < self.min_df:
+                    continue
+            res.append(token)
+        return res
+
+
 # =============================================================================
 # Functions
 # =============================================================================

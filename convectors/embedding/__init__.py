@@ -70,13 +70,13 @@ class OddsVectorizer(Layer):
         input=None,
         output=None,
         max_features=None,
-        sparse=True,
+        norm="l2",
         name=None,
-        verbose=True,
-        **kwargs,
+        verbose=True
     ):
         super().__init__(input, output, name, verbose)
         self.max_features = max_features
+        self.norm = norm
 
     def fit(self, documents, y=None):
         import itertools
@@ -107,7 +107,8 @@ class OddsVectorizer(Layer):
         X = csr_matrix((data, (xs, ys)),
                        dtype=float,
                        shape=(len(series), self.dim))
-        normalize(X, axis=1, norm="l2", copy=False)
+        normalize(X, axis=1, norm=self.norm, copy=False)
+        # X /= np.max(X, axis=-1)[:, None]
         return X
 
     def get_graph(
@@ -138,6 +139,7 @@ class OddsVectorizer(Layer):
                 edges.append((a, b, w))
 
         G = nx.Graph()
+        G.add_nodes_from(range(len(documents)))
         G.add_weighted_edges_from(edges)
         return G
 
