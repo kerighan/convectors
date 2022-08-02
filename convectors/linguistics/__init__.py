@@ -641,9 +641,10 @@ def tokenize(
     # remove stopwords
     if stopwords is not None:
         if not sentence_tokenize:
-            words = [w for w in words if w not in stopwords]
+            words = [w.strip() for w in words if w.strip() not in stopwords]
         else:
-            words = [[w for w in sentence if w not in stopwords]
+            words = [[w.strip() for w in sentence
+                      if w.strip() not in stopwords]
                      for sentence in words]
     return words
 
