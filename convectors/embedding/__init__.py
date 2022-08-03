@@ -71,12 +71,17 @@ class OddsVectorizer(Layer):
         output=None,
         max_features=None,
         norm="l2",
+        threshold=1.5,
+        ci=.95,
         name=None,
         verbose=True
     ):
+        from scipy.stats import norm
         super().__init__(input, output, name, verbose)
         self.max_features = max_features
         self.norm = norm
+        self.threshold = threshold
+        self.ci_factor = -norm.isf((1 - ci) / 2)
 
     def fit(self, documents, y=None):
         import itertools
@@ -122,12 +127,12 @@ class OddsVectorizer(Layer):
         edges = []
         for i, doc in enumerate(documents):
             count = Counter(doc)
-            count_total = sum(count.values())
+            doc_count = sum(count.values())
             for word, tf in count.items():
                 if word not in self.tf:
                     continue
-                odds = self.get_low_odds(
-                    tf, count_total, self.tf[word], self.total_count)
+                odds = self.compute_odds(
+                    tf, doc_count, self.tf[word], self.total_count)
                 if odds < threshold:
                     continue
                 edges.append((i, word, np.log(odds)))
@@ -146,31 +151,31 @@ class OddsVectorizer(Layer):
     def vectorize(self, doc, i):
         from collections import Counter
         count = Counter(doc)
-        count_total = sum(count.values())
+        doc_count = sum(count.values())
         xs, ys, data = [], [], []
         for word, tf in count.items():
             if word not in self.tf:
                 continue
-            odds = self.get_low_odds(
-                tf, count_total, self.tf[word], self.total_count)
-            if odds <= 1:
+            odds = self.compute_odds(
+                tf, doc_count, self.tf[word], self.total_count)
+            if odds <= self.threshold:
                 continue
             xs.append(i)
             ys.append(self.token2id[word])
             data.append(np.log(odds))
+            # data.append(odds)
         return xs, ys, data
 
-    def get_low_odds(self, a, c, b, d):
-        eps = 1e-6
-        c = max(c - a, eps)
-        d = max(d - b, eps)
-        a = max(a, eps)
-        b = max(b, eps)
-        odds_ratio = (a/c) / (b/d)
+    def compute_odds(self, a, b, c, d):
+        eps = 1
+        b = max(b - a, eps)
+        d = max(d - c, eps)
+        odds_ratio = (a / b) / (c / d)
 
-        uncertainty = np.sqrt(1/a+1/b+1/c+1/d)
-        low = odds_ratio * np.exp(-1.96*uncertainty)
-        return low
+        uncertainty = np.sqrt(1/a + 1/b + 1/c + 1/d)
+        uncertainty = np.exp(self.ci_factor*uncertainty)
+        odds_ratio *= uncertainty
+        return odds_ratio
 
 
 class CountVectorizer(VectorizerLayer):
