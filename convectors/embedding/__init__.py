@@ -71,17 +71,17 @@ class OddsVectorizer(Layer):
         output=None,
         max_features=None,
         norm="l2",
-        threshold=1.5,
+        threshold=2,
         ci=.95,
         name=None,
         verbose=True
     ):
-        from scipy.stats import norm
+        from scipy.stats import norm as scipy_norm
         super().__init__(input, output, name, verbose)
         self.max_features = max_features
         self.norm = norm
         self.threshold = threshold
-        self.ci_factor = -norm.isf((1 - ci) / 2)
+        self.ci_factor = -scipy_norm.isf((1 - ci) / 2.)
 
     def fit(self, documents, y=None):
         import itertools
@@ -112,8 +112,8 @@ class OddsVectorizer(Layer):
         X = csr_matrix((data, (xs, ys)),
                        dtype=float,
                        shape=(len(series), self.dim))
-        normalize(X, axis=1, norm=self.norm, copy=False)
-        # X /= np.max(X, axis=-1)[:, None]
+        if self.norm is not None:
+            normalize(X, axis=1, norm=self.norm, copy=False)
         return X
 
     def get_graph(
@@ -164,6 +164,7 @@ class OddsVectorizer(Layer):
             ys.append(self.token2id[word])
             data.append(np.log(odds))
             # data.append(odds)
+
         return xs, ys, data
 
     def compute_odds(self, a, b, c, d):
