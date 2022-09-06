@@ -32,6 +32,36 @@ class VectorizerLayer(Layer):
             return res
         return np.array(res.todense())
 
+    def get_graph(
+        self, documents, threshold=.1, pmi_threshold=.5, window_size=5
+    ):
+
+        import networkx as nx
+        from convectors.linguistics import pmi
+
+        edges = []
+        X = self.vectorizer.transform(documents)
+        features = self.vectorizer.get_feature_names_out()
+        features_set = set(features)
+        for i in range(len(documents)):
+            start, end = X.indptr[i], X.indptr[i+1]
+            for ind, w in zip(X.indices[start:end], X.data[start:end]):
+                if w < threshold:
+                    continue
+                word = features[ind]
+                edges.append((i, word, w))
+
+        pmi_ = pmi(documents, undirected=True,
+                   threshold=pmi_threshold, window_size=window_size)
+        for (a, b), w in pmi_.items():
+            if a in features_set and b in features_set:
+                edges.append((a, b, w))
+
+        G = nx.Graph()
+        G.add_nodes_from(range(len(documents)))
+        G.add_weighted_edges_from(edges)
+        return G
+
 
 class TfIdf(VectorizerLayer):
     def __init__(
