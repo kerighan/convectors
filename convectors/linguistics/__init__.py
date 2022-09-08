@@ -650,10 +650,10 @@ def tokenize(
 
 
 def pmi(
-    series, window_size=3, undirected=False, min_cooc=2,
+    series, window_size=3, undirected=False, min_cooc=2, k=1,
     threshold=None, normalize=True
 ):
-    from ..utils import PairCounter
+    from ..collections import PairCounter
     pair_counts = PairCounter(undirected=undirected)
     pair_counts.count(series)
     for doc in series:
@@ -663,7 +663,10 @@ def pmi(
                 tgt = window[i]
                 pair_counts.increment(src, tgt)
     edges = pair_counts.get_pmi(
-        normalize=normalize, threshold=threshold, min_cooc=min_cooc)
+        normalize=normalize,
+        threshold=threshold,
+        min_cooc=min_cooc,
+        k=k)
     return edges
 
 

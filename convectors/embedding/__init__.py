@@ -33,7 +33,12 @@ class VectorizerLayer(Layer):
         return np.array(res.todense())
 
     def get_graph(
-        self, documents, threshold=.1, pmi_threshold=.5, window_size=5
+        self,
+        documents,
+        threshold=.1,
+        pmi_threshold=.5,
+        window_size=5,
+        k=1
     ):
 
         import networkx as nx
@@ -51,8 +56,11 @@ class VectorizerLayer(Layer):
                 word = features[ind]
                 edges.append((i, word, w))
 
-        pmi_ = pmi(documents, undirected=True,
-                   threshold=pmi_threshold, window_size=window_size)
+        pmi_ = pmi(documents,
+                   undirected=True,
+                   threshold=pmi_threshold,
+                   window_size=window_size,
+                   k=k)
         for (a, b), w in pmi_.items():
             if a in features_set and b in features_set:
                 edges.append((a, b, w))
@@ -147,7 +155,12 @@ class OddsVectorizer(Layer):
         return X
 
     def get_graph(
-        self, documents, threshold=2, pmi_threshold=.5, window_size=5
+        self,
+        documents,
+        threshold=2,
+        pmi_threshold=.5,
+        window_size=5,
+        k=1
     ):
         from collections import Counter
 
@@ -167,8 +180,11 @@ class OddsVectorizer(Layer):
                     continue
                 edges.append((i, word, np.log(odds)))
 
-        pmi_ = pmi(documents, undirected=True,
-                   threshold=pmi_threshold, window_size=window_size)
+        pmi_ = pmi(documents,
+                   undirected=True,
+                   threshold=pmi_threshold,
+                   window_size=window_size,
+                   k=k)
         for (a, b), w in pmi_.items():
             if a in self.tf and b in self.tf:
                 edges.append((a, b, w))
