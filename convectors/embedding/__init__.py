@@ -267,6 +267,7 @@ class Sequence(Layer):
         padding="pre",
         unk_token=True,
         mask_token=True,
+        ragged=False,
         word2id=None,
         model=None,
         name=None,
@@ -278,6 +279,9 @@ class Sequence(Layer):
         self.max_features = max_features
         self.min_tf = min_tf
         self.maxlen = maxlen
+        self.ragged = ragged
+        if ragged:
+            pad = False
         self.pad = pad
         if padding == "pre":
             self.padding = True
@@ -375,7 +379,12 @@ class Sequence(Layer):
                         else:
                             doc_ids[i] = d[-self.maxlen:]
             return np.array(doc_ids, dtype=np.uint64)
-        elif self.maxlen is not None:
+        if self.ragged:
+            import tensorflow as tf
+            if self.maxlen is not None:
+                doc_ids = [d[:self.maxlen] for d in doc_ids]
+            return tf.ragged.constant(doc_ids, dtype=tf.int64)
+        if self.maxlen is not None:
             if self.padding:
                 doc_ids = [d[:self.maxlen] for d in doc_ids]
             else:
