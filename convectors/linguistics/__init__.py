@@ -55,6 +55,37 @@ class Tokenize(Layer):
             lower=self.lower)
 
 
+class BPETokenize(Layer):
+    parallel = False
+    trainable = True
+    document_wise = True
+
+    def __init__(self,
+                 input=None,
+                 output=None,
+                 max_features=10000,
+                 name=None,
+                 verbose=True,
+                 as_int=False,
+                 pct_bpe=.88,
+                 parallel=False):
+        super().__init__(input, output, name, verbose, parallel)
+        self.max_features = max_features
+        self.as_int = as_int
+        self.pct_bpe = pct_bpe
+
+    def fit(self, series, *args, y=None):
+        from bpe import Encoder
+        self.encoder = Encoder(self.max_features, pct_bpe=self.pct_bpe)
+        self.encoder.fit(list(series))
+        self.n_features = self.encoder.vocab_size
+
+    def process_doc(self, doc):
+        if self.as_int:
+            return next(self.encoder.transform([doc]))
+        return self.encoder.tokenize(doc)
+
+
 class Snowball(Layer):
     parallel = True
     trainable = False
@@ -148,90 +179,6 @@ class Lemmatize(Layer):
         if isinstance(text[0], str):
             return [self.stem(w) for w in text]
         return [[self.stem(w) for w in s] for s in text]
-
-
-class SubwordTokenize(Layer):
-    parallel = True
-    trainable = False
-
-    def __init__(
-        self,
-        input=None,
-        output=None,
-        lang="fr",
-        alpha=.002,
-        lower=True,
-        name=None,
-        verbose=True,
-        parallel=False
-    ):
-        super(SubwordTokenize, self).__init__(
-            input, output, name, verbose, parallel)
-
-        self.lang = lang
-        self.lower = lower
-        self.alpha = alpha
-        self.reload()
-
-    def unload(self):
-        if hasattr(self, "p"):
-            del self.p
-
-    def reload(self, **_):
-        import os
-        import pickle
-
-        if self.lower:
-            db_fn = os.path.join(
-                os.path.dirname(__file__),
-                f"../ressources/cooc/{self.lang}_cooc_lower.p")
-        else:
-            db_fn = os.path.join(
-                os.path.dirname(__file__),
-                f"../ressources/cooc/{self.lang}_cooc.p")
-        with open(db_fn, "rb") as f:
-            self.p = pickle.load(f)
-
-    def process_doc(self, sentence):
-        if self.lower:
-            sentence = sentence.lower()
-        chains = []
-        c_0 = sentence[0]
-        chain = ["_", c_0]
-        chain_p = 1
-        for c_1 in sentence[1:]:
-            if c_1 == " ":
-                if len(chain) > 0:
-                    if chain != ["_", "_"] or chain != ["_"]:
-                        chains.append("".join(chain) + "_")
-                chain = ["_"]
-                chain_p = 1
-            elif c_1 in """!"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~""":
-                if len(chain) > 0:
-                    if chain != ["_", "_"] or chain != ["_"]:
-                        chains.append("".join(chain) + "_")
-                chains.append(c_1)
-                chain = ["_"]
-                chain_p = 1
-
-            else:
-                if c_0 == "_":
-                    val = 1
-                else:
-                    val = self.p.get((c_0, c_1), 0)
-                chain_p *= val
-                if chain_p > self.alpha:
-                    chain.append(c_1)
-                else:
-                    if chain != ["_", "_"] or chain != ["_"]:
-                        chains.append("".join(chain))
-                    chain_p = 1
-                    chain = [c_1]
-            c_0 = c_1
-        if len(chain) > 0:
-            chains.append("".join(chain) + "_")
-        chains = [chain for chain in chains if chain not in ["__", "_"]]
-        return chains
 
 
 class NER(Layer):
@@ -535,12 +482,14 @@ class FreqFilter(Layer):
         name=None,
         min_df=None,
         max_df=None,
+        min_tf=None,
         verbose=True,
         parallel=False
     ):
         super().__init__(input, output, name, verbose, parallel)
         self.max_df = max_df
         self.min_df = min_df
+        self.min_tf = min_tf
 
     def fit(self, series, y=None):
         from collections import Counter
@@ -573,6 +522,9 @@ class FreqFilter(Layer):
                     continue
             if self.min_df is not None:
                 if token_df < self.min_df:
+                    continue
+            if self.min_tf is not None:
+                if self.tf[token] < self.min_tf:
                     continue
             res.append(token)
         return res
