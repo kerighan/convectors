@@ -470,7 +470,49 @@ class LangDetect(Layer):
             return None
 
 
-class FreqFilter(Layer):
+class NearDuplicates(Layer):
+    parallel = False
+    trainable = False
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        threshold=.85,
+        verbose=True,
+        parallel=False
+    ):
+        super().__init__(input, output, name, verbose, parallel)
+        self.threshold = threshold
+
+    def process_series(self, documents):
+        from collections import Counter
+
+        from scipy.sparse.csgraph import connected_components
+
+        from ..embedding import TfIdf
+        nlp = NGram(ngram=3)
+        nlp += TfIdf(max_features=50000)
+        nlp.verbose = False
+        X = nlp(documents.str.lower())
+        A = X @ X.T
+        A.setdiag(0)
+        A = A >= self.threshold
+        _, labels = connected_components(
+            csgraph=A, directed=False, return_labels=True)
+        counter = Counter(labels)
+        label2bucket = {}
+        for i, (label, occ) in enumerate(counter.most_common()):
+            if occ == 1:
+                break
+            label2bucket[label] = i
+        labels = [label2bucket.get(label, -1) for label in labels]
+        return labels
+
+
+class CountFilter(Layer):
     parallel = True
     trainable = True
     document_wise = True
