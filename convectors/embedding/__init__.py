@@ -130,6 +130,7 @@ class OddsVectorizer(Layer):
         self.token2id = {token: i for i, token in enumerate(self.tf.keys())}
         self.dim = len(self.token2id)
         self.total_count = sum(self.tf.values())
+        self.n_features = len(self.tf)
 
     def fit_transform(self, documents):
         self.fit(documents)
