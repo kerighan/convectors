@@ -263,13 +263,17 @@ class Sequence(Layer):
         output=None,
         max_features=None,
         min_tf=0,
+        max_tf=float("inf"),
+        min_df=0,
+        max_df=float("inf"),
         maxlen=None,
         pad=True,
-        padding="pre",
-        unk_token=True,
-        mask_token=True,
+        padding="post",
+        unk_token=False,
+        mask_token=False,
+        empty_token=True,
         ragged=False,
-        word2id=None,
+        feature2id=None,
         model=None,
         name=None,
         verbose=True
@@ -279,120 +283,123 @@ class Sequence(Layer):
             max_features = float("inf")
         self.max_features = max_features
         self.min_tf = min_tf
+        self.max_tf = max_tf
+        self.min_df = min_df
+        self.max_df = max_df
         self.maxlen = maxlen
-        self.ragged = ragged
-        if ragged:
-            pad = False
-        self.pad = pad
-        if padding == "pre":
-            self.padding = True
-        elif padding == "post":
-            self.padding = False
-        else:
-            raise ValueError("padding argument should be 'pre' or 'post'")
         self.unk_token = unk_token
         self.mask_token = mask_token
+        self.empty_token = empty_token
+        self.ragged = ragged
+        self.padding = padding
+        if ragged:
+            pad = False
 
-        if model is not None:  # gensim model provided
-            if hasattr(model, "word2id"):  # convectors WordVectors instance
-                self.word2id = {k: v for k, v in model.word2id.items()}
-            else:
-                self.word2id = {}
-                for word, index in model.wv.key_to_index.items():
-                    self.word2id[word] = index + 1  # offset index by 1
-            self.unk_token = "<UNK>" in self.word2id
-            self.mask_token = "<MASK>" in self.word2id
-            self.n_features = len(self.word2id)
-        elif word2id is not None:  # custom word2id mapping
-            self.word2id = word2id
-            self.unk_token = "<UNK>" in self.word2id
-            self.mask_token = "<MASK>" in self.word2id
-            self.n_features = len(self.word2id)
+        if pad and maxlen is not None:
+            self.process_series = self._crop_pad_sequences
+        elif pad:
+            self.process_series = self._pad_sequences
+        elif maxlen is not None:
+            self.process_series = self._crop_sequences
         else:
-            self.word2id = None
+            self.process_series = self._sequences
 
-    def fit(self, series, y=None):
-        if self.word2id is not None:
-            return
+    def _crop_pad_sequences(self, documents):
+        unk_token_id = self.feature2id.get("_UNK_", -1)
+        empty_token_id = self.feature2id.get("_EMPTY_", -1)
+        maxlen = self.maxlen
+        results = np.zeros((len(documents), maxlen), dtype=np.int32)
+        for i, doc in enumerate(documents):
+            doc = [self.feature2id.get(t, unk_token_id) for t in doc]
+            if not self.unk_token:
+                doc = [t for t in doc if t != -1]
+            if len(doc) > maxlen:
+                doc = doc[:maxlen]
 
-        import itertools
-        from collections import Counter
+            if len(doc) == 0 and empty_token_id != -1:
+                doc = [empty_token_id]
 
-        self.word2id = {}
-        tf = Counter(itertools.chain(*series))
-        n_words = 1
-        threshold = (
-            self.max_features + 1
-            - self.unk_token - self.mask_token)
-        for word, freq in tf.most_common():
-            if freq < self.min_tf:
-                break
-            if n_words >= threshold:
-                break
-            self.word2id[word] = n_words
-            n_words += 1
-
-        # add special token
-        if self.unk_token and "<UNK>" not in self.word2id:
-            self.word2id["<UNK>"] = n_words
-            n_words += 1
-        if self.mask_token and "<MASK>" not in self.word2id:
-            self.word2id["<MASK>"] = n_words
-            n_words += 1
-        self.n_features = len(self.word2id)
-
-    def process_series(self, series):
-        if self.unk_token:
-            unk_id = self.word2id["<UNK>"]
-            doc_ids = [
-                [self.word2id.get(w, unk_id) for w in text]
-                for text in series
-            ]
-        else:
-            doc_ids = [
-                [self.word2id[w] for w in text if w in self.word2id]
-                for text in series
-            ]
-        if self.pad:
-            if self.maxlen is None:
-                max_length = max((len(d) for d in doc_ids))
-                if self.padding:
-                    doc_ids = [
-                        [0]*(max_length - len(d)) + d
-                        for d in doc_ids
-                    ]
+            doc_len = len(doc)
+            if doc_len <= maxlen:
+                if self.padding == "post":
+                    # doc += [0]*(maxlen-doc_len)
+                    results[i, :doc_len] = doc
                 else:
-                    doc_ids = [
-                        d + [0]*(max_length - len(d))
-                        for d in doc_ids
-                    ]
-            else:
-                for i in range(len(doc_ids)):
-                    d = doc_ids[i]
-                    if len(d) < self.maxlen:
-                        if self.padding:
-                            doc_ids[i] = [0] * (self.maxlen - len(d)) + d
-                        else:
-                            doc_ids[i] = d + [0] * (self.maxlen - len(d))
-                    elif len(d) > self.maxlen:
-                        if self.padding:
-                            doc_ids[i] = d[:self.maxlen]
-                        else:
-                            doc_ids[i] = d[-self.maxlen:]
-            return np.array(doc_ids, dtype=np.uint64)
+                    results[i, -doc_len:] = doc
+        return results
+
+    def _pad_sequences(self, documents):
+        unk_token_id = self.feature2id.get("_UNK_", -1)
+        empty_token_id = self.feature2id.get("_EMPTY_", -1)
+        results = []
+        maxlen = -float("inf")
+        for doc in documents:
+            doc = [self.feature2id.get(t, unk_token_id) for t in doc]
+            if not self.unk_token:
+                doc = [t for t in doc if t != -1]
+
+            if len(doc) == 0 and empty_token_id != -1:
+                doc = [empty_token_id]
+
+            doc_len = len(doc)
+            if doc_len > maxlen:
+                maxlen = doc_len
+            results.append(doc)
+        if self.padding == "post":
+            results = np.array([doc + [0]*(maxlen - len(doc))
+                                for doc in results], dtype=np.int64)
+        else:
+            results = np.array([[0]*(maxlen - len(doc)) + doc
+                                for doc in results], dtype=np.int64)
+        return results
+
+    def _crop_sequences(self, documents):
+        unk_token_id = self.feature2id.get("_UNK_", -1)
+        empty_token_id = self.feature2id.get("_EMPTY_", -1)
+        maxlen = self.maxlen
+        results = []
+        for doc in documents:
+            doc = [self.feature2id.get(t, unk_token_id) for t in doc]
+            if not self.unk_token:
+                doc = [t for t in doc if t != -1]
+
+            if len(doc) > maxlen:
+                doc = doc[:maxlen]
+            if len(doc) == 0 and empty_token_id != -1:
+                doc = [empty_token_id]
+            results.append(doc)
         if self.ragged:
             import tensorflow as tf
-            if self.maxlen is not None:
-                doc_ids = [d[:self.maxlen] for d in doc_ids]
-            return tf.ragged.constant(doc_ids, dtype=tf.int64)
-        if self.maxlen is not None:
-            if self.padding:
-                doc_ids = [d[:self.maxlen] for d in doc_ids]
-            else:
-                doc_ids = [d[-self.maxlen:] for d in doc_ids]
-        if isinstance(series, pd.Series):
-            return pd.Series(doc_ids, index=series.index)
-        return doc_ids
+            return tf.ragged.constant(results, dtype=tf.int64)
+        return results
+
+    def _sequences(self, documents):
+        unk_token_id = self.feature2id.get("_UNK_", -1)
+        empty_token_id = self.feature2id.get("_EMPTY_", -1)
+        results = []
+        for doc in documents:
+            doc = [self.feature2id.get(t, unk_token_id) for t in doc]
+            if not self.unk_token:
+                doc = [t for t in doc if t != -1]
+            if len(doc) == 0 and empty_token_id != -1:
+                doc = [empty_token_id]
+            results.append(doc)
+        if self.ragged:
+            import tensorflow as tf
+            return tf.ragged.constant(results, dtype=tf.int64)
+        return results
+
+    def fit(self, series, y=None):
+        if hasattr(self, "feature2id"):
+            return
+
+        from ..utils import get_features_from_documents
+        self.feature2id, self.id2feature = get_features_from_documents(
+            series, max_features=self.max_features, min_tf=self.min_tf,
+            max_tf=self.max_tf, min_df=self.min_df, max_df=self.max_df,
+            unk_token=self.unk_token, mask_token=self.mask_token,
+            empty_token=self.empty_token)
+        self.n_features = len(self.feature2id)
 
 
 class OneHot(Layer):
