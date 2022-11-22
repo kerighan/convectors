@@ -1,7 +1,7 @@
 from .. import Layer
 
 
-class HuggingFaceLayer(Layer):
+class NLPLayer(Layer):
     parallel = False
     trainable = False
     document_wise = True
@@ -14,7 +14,7 @@ class HuggingFaceLayer(Layer):
         verbose=True,
         document_wise=True
     ):
-        super(HuggingFaceLayer, self).__init__(
+        super(NLPLayer, self).__init__(
             input, output, name, verbose, False)
         self.document_wise = document_wise
         self.reload()
@@ -31,7 +31,7 @@ class HuggingFaceLayer(Layer):
         del self.nlp
 
 
-class Summarize(HuggingFaceLayer):
+class Summarize(NLPLayer):
     parallel = False
     trainable = False
     document_wise = True
@@ -56,7 +56,7 @@ class Summarize(HuggingFaceLayer):
             model=loaded_model, tokenizer=loaded_tokenizer)
 
 
-class NER(HuggingFaceLayer):
+class NER(NLPLayer):
     def __init__(
         self,
         input=None,
@@ -99,46 +99,7 @@ class NER(HuggingFaceLayer):
         ]
 
 
-class NER2(HuggingFaceLayer):
-    def __init__(
-        self,
-        input=None,
-        output=None,
-        simplified=True,
-        name=None,
-        verbose=True,
-        document_wise=True
-    ):
-        super(NER2, self).__init__(
-            input, output, name, verbose, document_wise)
-        self.simplified = simplified
-
-    def reload(self):
-        from flair.data import Sentence
-        from flair.models import SequenceTagger
-
-        self.nlp = SequenceTagger.load("flair/ner-french")
-        self.sentence = Sentence
-
-    def process_doc(self, doc):
-        res = self.nlp.predict(self.sentence(doc))
-        if not self.simplified:
-            return res
-        return [it for it in res.get_spans("ner")]
-
-    def process_series(self, series):
-        if not isinstance(series, list):
-            series = list(series)
-        res = self.nlp(series)
-        if not self.simplified:
-            return res
-        return [
-            [(it["word"], it["entity_group"]) for it in doc]
-            for doc in res
-        ]
-
-
-class SentenceTransformer(HuggingFaceLayer):
+class SentenceTransformer(NLPLayer):
     def __init__(
         self,
         input=None,
@@ -167,7 +128,7 @@ class SentenceTransformer(HuggingFaceLayer):
         return self.nlp.encode(series)
 
 
-class Sentiment(HuggingFaceLayer):
+class Sentiment(NLPLayer):
     def __init__(
         self,
         input=None,
@@ -200,3 +161,42 @@ class Sentiment(HuggingFaceLayer):
             label = item["label"]
             stars.append(int(label[:1]))
         return stars
+
+
+class FlairNER(NLPLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        simplified=True,
+        name=None,
+        lang="fr",
+        verbose=True,
+        document_wise=True
+    ):
+        self.lang = lang
+        super(FlairNER, self).__init__(
+            input, output, name, verbose, document_wise)
+        self.simplified = simplified
+
+    def reload(self):
+        from flair.data import Sentence
+        from flair.models import SequenceTagger
+        if self.lang == "fr":
+            self.nlp = SequenceTagger.load("flair/ner-french")
+        self.sentence = Sentence
+
+    def process_doc(self, doc):
+        sent = self.sentence(doc)
+        self.nlp.predict(sent)
+        return [(it.text, it.tag) for it in sent.get_spans("ner")]
+
+    def process_series(self, series):
+        if not isinstance(series, list):
+            series = list(series)
+        res = self.nlp(series)
+        if not self.simplified:
+            return res
+        return [
+            [(it["word"], it["entity_group"]) for it in doc]
+            for doc in res]
