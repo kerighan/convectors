@@ -19,7 +19,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         "numpy", "scikit-learn", "scipy",
-        "tqdm", "pandas", "dill"
+        "tqdm", "pandas", "dill", "emoji"
     ],
     include_package_data=True,
     classifiers=[

@@ -3,8 +3,8 @@ from .classifier import (MLP, RNN, SVM, TFMLP, AdaBoost, Keras, RandomForest,
 from .embedding import (CountVectorizer, Doc2Vec, OddsVectorizer, OneHot,
                         Sequence, TfIdf)
 from .linguistics import (NER, BPETokenize, Contract, CountFilter, FindAll,
-                          LangDetect, Lemmatize, NGram, Phrase, Snowball, Sub,
-                          Tokenize)
+                          LangDetect, Lemmatize, NearDuplicates, NGram, Phrase,
+                          Snowball, Sub, Tokenize)
 from .multi import Merge
 from .preprocessing import Normalize
 from .reduction import NMF, PCA, SVD, UMAP, RandomizedSVD
@@ -19,5 +19,5 @@ __all__ = [
     "XGBoost", "Merge", "Normalize", "SplitHashtag", "TFMLP",
     "MLPRegressor", "KerasRegressor", "Lambda", "RNN", "DomainName",
     "RandomizedSVD", "NER", "Argmax", "OddsVectorizer", "BPETokenize",
-    "CountFilter"
+    "CountFilter", "NearDuplicates"
 ]
