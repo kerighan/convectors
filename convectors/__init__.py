@@ -253,13 +253,17 @@ class WordVectors(Layer):
             self.id2word = {}
             self.word2id = {}
             weights = [np.zeros_like(model.wv[0])]
-            for i, word in tqdm(
-                    enumerate(model.wv.key_to_index, 1),
+            index = 1
+            for _, word in tqdm(
+                    enumerate(model.wv.key_to_index),
                     total=len(model.wv)):
+                if word is None:
+                    continue
                 vector = model.wv[word]
                 weights.append(vector)
-                self.word2id[word] = i
-                self.id2word[i] = word
+                self.word2id[word] = index
+                self.id2word[index] = word
+                index += 1
             self.weights = np.vstack(weights)
         else:
             assert weights is not None
