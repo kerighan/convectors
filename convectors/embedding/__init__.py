@@ -273,8 +273,6 @@ class Sequence(Layer):
         mask_token=False,
         empty_token=True,
         ragged=False,
-        feature2id=None,
-        model=None,
         name=None,
         verbose=True
     ):

@@ -239,8 +239,8 @@ class WordVectors(Layer):
     def __init__(
         self,
         model=None,
-        word2id=None,
-        id2word=None,
+        feature2id=None,
+        id2feature=None,
         weights=None,
         name=None,
         verbose=True,
@@ -250,8 +250,8 @@ class WordVectors(Layer):
 
         if model is not None:
             from tqdm import tqdm
-            self.id2word = {}
-            self.word2id = {}
+            self.id2feature = {}
+            self.feature2id = {}
             weights = [np.zeros_like(model.wv[0])]
             index = 1
             for _, word in tqdm(
@@ -261,32 +261,31 @@ class WordVectors(Layer):
                     continue
                 vector = model.wv[word]
                 weights.append(vector)
-                self.word2id[word] = index
-                self.id2word[index] = word
+                self.feature2id[word] = index
+                self.id2feature[index] = word
                 index += 1
             self.weights = np.vstack(weights)
         else:
             assert weights is not None
-            if word2id is not None:
-                if id2word is None:
-                    id2word = {i: word for word, i in word2id.items()}
-            elif id2word is not None:
-                word2id = {word: i for i, word in id2word.items()}
-            self.word2id = word2id
-            self.id2word = id2word
+            if feature2id is not None:
+                if id2feature is None:
+                    id2feature = {i: word for word, i in feature2id.items()}
+            elif id2feature is not None:
+                feature2id = {word: i for i, word in id2feature.items()}
+            self.feature2id = feature2id
+            self.id2feature = id2feature
             self.weights = weights
 
     def fit_to_sequence(self, seq):
-        id2word = {i: word for word, i in seq.word2id.items()}
+        id2feature = {i: word for word, i in seq.feature2id.items()}
         dim = self.weights.shape[1]
         dtype = self.weights.dtype
 
         new_weights = [np.zeros(dim, dtype=dtype)]
-        for i in range(1, max(id2word.keys()) + 1):
-            word = id2word[i]
-            # vec = np.zeros(dim, dtype=dtype)
+        for i in range(1, max(id2feature.keys()) + 1):
+            word = id2feature[i]
 
-            weight_id = self.word2id.get(word)
+            weight_id = self.feature2id.get(word)
             if weight_id is None:
                 vec = np.zeros(dim, dtype=dtype)
             else:
@@ -294,7 +293,7 @@ class WordVectors(Layer):
             new_weights.append(vec)
         new_weights = np.array(new_weights)
 
-        return WordVectors(id2word=id2word, weights=new_weights)
+        return WordVectors(id2feature=id2feature, weights=new_weights)
 
     def unload(self):
         pass
@@ -317,7 +316,7 @@ class WordVectors(Layer):
         nan[:] = np.nan
         X = []
         for x in series:
-            idx = self.word2id.get(x)
+            idx = self.feature2id.get(x)
             if idx is not None:
                 X.append(self.weights[idx])
             else:
@@ -329,15 +328,22 @@ class WordVectors(Layer):
         with open(filename, "wb") as f:
             dill.dump(self, f)
 
+    def save_to_sqlitedict(self, filename):
+        from sqlitedict import SqliteDict
+        from tqdm import tqdm
+        db = SqliteDict(filename, autocommit=True)
+        for key in tqdm(self, total=len(self)):
+            db[key] = self[key]
+
     def __iter__(self):
-        for key in self.word2id:
+        for key in self.feature2id:
             yield key
 
     def __len__(self):
-        return len(self.word2id)
+        return len(self.feature2id)
 
     def __contains__(self, key):
-        return key in self.word2id
+        return key in self.feature2id
 
     def __getitem__(self, key):
         if isinstance(key, int):
@@ -345,14 +351,31 @@ class WordVectors(Layer):
                 return self.weights[key, :]
             else:
                 raise IndexError(key)
-        if key not in self.word2id:
+        if key not in self.feature2id:
             raise KeyError(key)
-        return self.weights[self.word2id[key]]
+        return self.weights[self.feature2id[key]]
+
+    def __call__(self, series):
+        return self._sequences(series)
+
+    def _sequences(self, documents):
+        unk_token_id = self.feature2id.get("_UNK_", -1)
+        empty_token_id = self.feature2id.get("_EMPTY_", -1)
+        results = []
+        for doc in documents:
+            doc = [self.feature2id.get(t, unk_token_id) for t in doc]
+            if unk_token_id == -1:
+                doc = [t for t in doc if t != -1]
+            if len(doc) == 0 and empty_token_id != -1:
+                doc = [empty_token_id]
+            results.append(doc)
+        return results
 
 
 # =============================================================================
 # Functions
 # =============================================================================
+
 
 def load_model(filename, **kwargs):
     import dill
