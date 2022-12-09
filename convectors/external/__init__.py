@@ -135,7 +135,7 @@ class Sentiment(NLPLayer):
         output=None,
         name=None,
         verbose=True,
-        document_wise=False
+        document_wise=True
     ):
         super().__init__(
             input, output, name, verbose, document_wise)
@@ -149,18 +149,16 @@ class Sentiment(NLPLayer):
 
         model = AutoModelForSequenceClassification.from_pretrained(
             "nlptown/bert-base-multilingual-uncased-sentiment")
-        self.nlp = pipeline("sentiment-analysis", model=model,
-                            tokenizer=tokenizer)
+        self.nlp = pipeline("sentiment-analysis",
+                            model=model, tokenizer=tokenizer)
 
-    def process_series(self, series):
-        if not isinstance(series, list):
-            series = list(series)
-        res = self.nlp(series)
-        stars = []
-        for item in res:
+    def process_doc(self, doc):
+        try:
+            item = self.nlp(doc)[0]
             label = item["label"]
-            stars.append(int(label[:1]))
-        return stars
+            return int(label[:1])
+        except RuntimeError:
+            return None
 
 
 class FlairNER(NLPLayer):
