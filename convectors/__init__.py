@@ -310,18 +310,19 @@ class WordVectors(Layer):
             )
 
     def process_series(self, series):
-        dim = self.weights.shape[1]
-        dtype = self.weights.dtype
-        nan = np.empty(dim, dtype=dtype)
-        nan[:] = np.nan
-        X = []
-        for x in series:
-            idx = self.feature2id.get(x)
-            if idx is not None:
-                X.append(self.weights[idx])
-            else:
-                X.append(nan)
-        return np.array(X)
+        # dim = self.weights.shape[1]
+        # dtype = self.weights.dtype
+        # nan = np.empty(dim, dtype=dtype)
+        # nan[:] = np.nan
+        # X = []
+        # for x in series:
+        #     idx = self.feature2id.get(x)
+        #     if idx is not None:
+        #         X.append(self.weights[idx])
+        #     else:
+        #         X.append(nan)
+        # return np.array(X)
+        return self._sequences(series)
 
     def save(self, filename):
         import dill
@@ -362,13 +363,29 @@ class WordVectors(Layer):
         unk_token_id = self.feature2id.get("_UNK_", -1)
         empty_token_id = self.feature2id.get("_EMPTY_", -1)
         results = []
+
+        if hasattr(self, "maxlen"):
+            crop = True
+            maxlen = self.maxlen
+        else:
+            crop = False
+
         for doc in documents:
             doc = [self.feature2id.get(t, unk_token_id) for t in doc]
             if unk_token_id == -1:
                 doc = [t for t in doc if t != -1]
             if len(doc) == 0 and empty_token_id != -1:
                 doc = [empty_token_id]
+
+            if crop:
+                if len(doc) > maxlen:
+                    doc = doc[:maxlen]
+                elif len(doc) < maxlen:
+                    doc += [0]*(maxlen - len(doc))
+
             results.append(doc)
+        if crop:
+            return np.array(results, dtype=np.int64)
         return results
 
 
