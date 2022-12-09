@@ -198,3 +198,72 @@ class FlairNER(NLPLayer):
         return [
             [(it["word"], it["entity_group"]) for it in doc]
             for doc in res]
+
+
+class T5Translate(NLPLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        document_wise=True,
+        target="French"
+    ):
+        super().__init__(
+            input, output, name, verbose, document_wise)
+        self.tgt = target
+
+    def reload(self):
+        from transformers import T5ForConditionalGeneration, T5Tokenizer
+
+        self.tokenizer = T5Tokenizer.from_pretrained("t5-large")
+        self.model = T5ForConditionalGeneration.from_pretrained(
+            "t5-large", return_dict=True)
+
+    def process_doc(self, doc):
+        src = "French"
+        # tgt = "German"
+        inp = f"translate {src} to {self.tgt}: " + doc
+        print(inp)
+        input_ids = self.tokenizer(inp, return_tensors="pt").input_ids
+        outputs = self.model.generate(input_ids)
+        decoded = self.tokenizer.decode(
+            outputs[0], skip_special_tokens=True)
+        print(decoded)
+        print()
+        return decoded
+
+
+class OpusTranslate(NLPLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        document_wise=True,
+        src="en",
+        tgt="fr"
+    ):
+        self.src = src
+        self.tgt = tgt
+        super().__init__(
+            input, output, name, verbose, document_wise)
+
+    def reload(self):
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+
+        model_name = f"Helsinki-NLP/opus-mt-{self.src}-{self.tgt}"
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+
+    def process_doc(self, doc):
+        try:
+            inputs = self.tokenizer(doc, return_tensors="pt")
+            outputs = self.model.generate(**inputs)
+            decoded = self.tokenizer.decode(outputs[0],
+                                            skip_special_tokens=True)
+            return decoded
+        except Exception:
+            return doc
