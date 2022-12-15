@@ -252,11 +252,14 @@ class OpusTranslate(NLPLayer):
             input, output, name, verbose, document_wise)
 
     def reload(self):
+        import torch
         from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+        device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
         model_name = f"Helsinki-NLP/opus-mt-{self.src}-{self.tgt}"
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+        self.model.to(device)
 
     def process_doc(self, doc):
         try:
@@ -267,3 +270,57 @@ class OpusTranslate(NLPLayer):
             return decoded
         except Exception:
             return doc
+
+
+class OpusTranslateBatch(NLPLayer):
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        document_wise=False,
+        src="en",
+        tgt="fr",
+        batch_size=50
+    ):
+        self.src = src
+        self.tgt = tgt
+        self.batch_size = batch_size
+        super().__init__(
+            input, output, name, verbose, document_wise)
+
+    def reload(self):
+        import torch
+        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+
+        # self.device = torch.device(
+        #     "cuda" if torch.cuda.is_available() else "cpu")
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+
+        model_name = f"Helsinki-NLP/opus-mt-{self.src}-{self.tgt}"
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+        # self.model.to(self.device)
+        self.tokenizer.max_length = 512
+        self.model.max_length = 512
+
+    def process_series(self, series):
+        from more_itertools import chunked
+        from tqdm import tqdm
+
+        res = []
+        total = len(series)//self.batch_size + int(
+            (len(series) % self.batch_size) > 0)
+        for docs in tqdm(chunked(series, n=self.batch_size), total=total):
+            try:
+                inputs = self.tokenizer(
+                    docs, return_tensors="pt", padding=True)
+                outputs = self.model.generate(**inputs)
+                decoded = [self.tokenizer.decode(out, skip_special_tokens=True)
+                           for out in outputs]
+            except Exception as e:
+                print(e)
+                decoded = []*len(docs)
+            res += decoded
+        return res
