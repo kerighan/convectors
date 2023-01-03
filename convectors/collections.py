@@ -117,7 +117,12 @@ class OddsCounter:
         return odds_ratio
 
     def get_keywords(
-        self, topic, exclude=True, return_score=False, min_tf=1
+        self,
+        topic,
+        exclude=True,
+        return_score=False,
+        min_tf=1,
+        threshold=1
     ):
         count_total = self.counts_total[topic]
         res = []
@@ -132,7 +137,7 @@ class OddsCounter:
                 odds = self.compute_odds(tf, count_total,
                                          self.global_counter[token],
                                          self.global_total)
-            if odds > 1:
+            if odds > threshold:
                 res.append((token, odds))
         res = sorted(res, key=lambda x: x[1], reverse=True)
         if not return_score:
