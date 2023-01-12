@@ -324,3 +324,38 @@ class OpusTranslateBatch(NLPLayer):
                 decoded = []*len(docs)
             res += decoded
         return res
+
+
+class Tiktokenize(Layer):
+    parallel = False
+    trainable = False
+    document_wise = True
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        name=None,
+        verbose=True,
+        document_wise=True,
+        encoding="gpt2"
+    ):
+        super().__init__(
+            input, output, name, verbose, False)
+        self.document_wise = document_wise
+        self.encoding = encoding
+        self.reload()
+
+    def reload(self):
+        import tiktoken
+        self.enc = tiktoken.get_encoding(self.encoding)
+        self.n_features = self.enc.n_vocab
+
+    def process_doc(self, doc):
+        return self.enc.encode(doc, allowed_special={'<|endoftext|>'})
+
+    def decode(self, doc):
+        return self.enc.decode(doc)
+
+    def unload(self):
+        del self.enc

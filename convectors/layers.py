@@ -6,7 +6,7 @@ from .linguistics import (NER, BPETokenize, Contract, CountFilter, FindAll,
                           LangDetect, Lemmatize, NearDuplicates, NGram, Phrase,
                           Snowball, Sub, Tokenize)
 from .multi import Merge
-from .preprocessing import Normalize
+from .preprocessing import Normalize, Pad
 from .reduction import NMF, PCA, SVD, UMAP, RandomizedSVD
 from .regressor import KerasRegressor, MLPRegressor
 from .special import Argmax, DomainName, Lambda, SplitHashtag
@@ -19,5 +19,5 @@ __all__ = [
     "XGBoost", "Merge", "Normalize", "SplitHashtag", "TFMLP",
     "MLPRegressor", "KerasRegressor", "Lambda", "RNN", "DomainName",
     "RandomizedSVD", "NER", "Argmax", "OddsVectorizer", "BPETokenize",
-    "CountFilter", "NearDuplicates"
+    "CountFilter", "NearDuplicates", "Pad"
 ]

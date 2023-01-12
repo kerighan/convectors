@@ -46,3 +46,33 @@ class Mask(Layer):
             docs.append(new_doc)
             masks.append(doc[mask_index])
         return docs, masks
+
+
+class TeacherForce(Layer):
+    parallel = False
+    trainable = False
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        multiple_tokens=False,
+        name=None,
+        verbose=True,
+        parallel=False
+    ):
+        super().__init__(input, output, name, verbose, parallel)
+        self.multiple_tokens = multiple_tokens
+
+    def process_series(self, series):
+        X, y = [], []
+
+        for doc in series:
+            for i in range(1, len(doc)):
+                X.append(doc[:i])
+                if self.multiple_tokens:
+                    y.append(doc[i:])
+                else:
+                    y.append(doc[i])
+        return X, y

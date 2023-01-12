@@ -348,7 +348,7 @@ class WordVectors(Layer):
 
     def __getitem__(self, key):
         if isinstance(key, int):
-            if 0 <= key < self.num_words:
+            if 0 <= key < self.weights.shape[0]:
                 return self.weights[key, :]
             else:
                 raise IndexError(key)
@@ -387,6 +387,14 @@ class WordVectors(Layer):
         if crop:
             return np.array(results, dtype=np.int64)
         return results
+
+    def to_anns(self, metric="angular", n_trees=10):
+        from annoy import AnnoyIndex
+        t = AnnoyIndex(self.weights.shape[1], metric)
+        for i, vec in enumerate(self.weights):
+            t.add_item(i, vec)
+        t.build(n_trees)
+        return t
 
 
 # =============================================================================

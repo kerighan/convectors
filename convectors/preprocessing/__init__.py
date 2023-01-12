@@ -95,3 +95,34 @@ class QuantileTransformer(Scaler):
             input, output, name, verbose)
         from sklearn.preprocessing import QuantileTransformer as QT
         self.scaler = QT()
+
+
+class Pad(Layer):
+    parallel = False
+    trainable = False
+    document_wise = False
+
+    def __init__(
+        self,
+        input=None,
+        output=None,
+        max_features=None,
+        maxlen=None,
+        name=None,
+        padding="post",
+        truncating="post",
+        verbose=True
+    ):
+        super().__init__(input, output, name, verbose, False)
+        if max_features is None:
+            max_features = float("inf")
+        self.maxlen = maxlen
+        self.padding = padding
+        self.truncating = truncating
+
+    def process_series(self, series):
+        from tensorflow.keras.utils import pad_sequences
+        return pad_sequences(series,
+                             maxlen=self.maxlen,
+                             padding=self.padding,
+                             truncating=self.truncating)
