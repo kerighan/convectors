@@ -352,10 +352,12 @@ class Tiktokenize(Layer):
         self.n_features = self.enc.n_vocab
 
     def process_doc(self, doc):
-        return self.enc.encode(doc, allowed_special={'<|endoftext|>'})
+        res = self.enc.encode(doc, allowed_special={'<|endoftext|>'})
+        res = [it + 1 for it in res]
+        return res
 
     def decode(self, doc):
-        return self.enc.decode(doc)
+        return self.enc.decode([it - 1 for it in doc])
 
     def unload(self):
         del self.enc
