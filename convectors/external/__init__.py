@@ -330,7 +330,7 @@ class Tiktokenize(Layer):
     parallel = False
     trainable = False
     document_wise = True
-
+    
     def __init__(
         self,
         input=None,
@@ -338,26 +338,55 @@ class Tiktokenize(Layer):
         name=None,
         verbose=True,
         document_wise=True,
-        encoding="gpt2"
+        encoding="gpt2",
+        offset=True,
+        special_tokens={"<|startoftext|>"}
     ):
         super().__init__(
             input, output, name, verbose, False)
         self.document_wise = document_wise
         self.encoding = encoding
+        self.special_tokens = special_tokens
+        self.offset = offset
         self.reload()
-
+    
     def reload(self):
-        import tiktoken
-        self.enc = tiktoken.get_encoding(self.encoding)
+        from tiktoken.load import data_gym_to_mergeable_bpe_ranks
+        from tiktoken.core import Encoding
+        mergeable_ranks = data_gym_to_mergeable_bpe_ranks(
+            vocab_bpe_file="az://openaipublic/gpt-2/encodings/main/vocab.bpe",
+            encoder_json_file="az://openaipublic/gpt-2/encodings/main/encoder.json",
+        )
+        special_tokens = {"<|endoftext|>": 50256}
+        self.allowed_special = {'<|endoftext|>'}
+        for i, t in enumerate(self.special_tokens, 1):
+            special_tokens[t] = 50256 + i
+            self.allowed_special.add(t)
+        
+        options = {
+            "name": "gpt2",
+            "explicit_n_vocab": 50257 + len(self.special_tokens),
+            "pat_str": r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
+            "mergeable_ranks": mergeable_ranks,
+            "special_tokens": special_tokens,
+        }
+        enc = Encoding(**options)
+        self.enc = enc
         self.n_features = self.enc.n_vocab
-
+    
     def process_doc(self, doc):
-        res = self.enc.encode(doc, allowed_special={'<|endoftext|>'})
-        res = [it + 1 for it in res]
-        return res
+        if self.offset:
+            return [
+                it + 1
+                for it in self.enc.encode(
+                    doc, allowed_special=self.allowed_special)
+            ]
+        return self.enc.encode(doc)
 
     def decode(self, doc):
-        return self.enc.decode([it - 1 for it in doc])
+        if self.offset:
+            return self.enc.decode([it-1 for it in doc])
+        return self.enc.decode(doc)
 
     def unload(self):
         del self.enc

@@ -10,6 +10,7 @@ from .preprocessing import Normalize, Pad
 from .reduction import NMF, PCA, SVD, UMAP, RandomizedSVD
 from .regressor import KerasRegressor, MLPRegressor
 from .special import Argmax, DomainName, Lambda, SplitHashtag
+from .external import Tiktokenize
 
 __all__ = [
     "Tokenize", "Snowball", "Phrase", "Sub", "Contract", "FindAll",
@@ -19,5 +20,5 @@ __all__ = [
     "XGBoost", "Merge", "Normalize", "SplitHashtag", "TFMLP",
     "MLPRegressor", "KerasRegressor", "Lambda", "RNN", "DomainName",
     "RandomizedSVD", "NER", "Argmax", "OddsVectorizer", "BPETokenize",
-    "CountFilter", "NearDuplicates", "Pad"
+    "CountFilter", "NearDuplicates", "Pad", "Tiktokenize"
 ]
