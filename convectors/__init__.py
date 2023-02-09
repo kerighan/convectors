@@ -397,6 +397,77 @@ class WordVectors(Layer):
         return t
 
 
+class Dataset:
+    def __init__(self, data, shuffle=True):
+        self._dataset_size = len(data)
+        self._data = data
+        self._map = lambda x: x
+        self._ind = np.arange(self._dataset_size)
+        self._epochs = 1
+        self._batch_size = 32
+        if shuffle:
+            np.random.shuffle(self._ind)
+        self._validation_index = self._dataset_size
+
+    def __len__(self):
+        return self._dataset_size
+
+    @property
+    def steps_per_epoch(self):
+        return int(np.ceil(self._validation_index / self._batch_size))
+
+    @property
+    def validation_steps(self):
+        return int(np.ceil(
+            (self._dataset_size - self._validation_index) / self._batch_size))
+
+    @property
+    def training_data(self):
+        from more_itertools import chunked
+        indices = self._ind[:self._validation_index]
+        for epoch in range(self._epochs):
+            for batch_slice in chunked(indices, self._batch_size):
+                yield self._map(self._data[batch_slice])
+
+    @property
+    def validation_data(self):
+        from more_itertools import chunked
+        indices = self._ind[self._validation_index:]
+        for epoch in range(self._epochs):
+            for batch_slice in chunked(indices, self._batch_size):
+                yield self._map(self._data[batch_slice])
+
+    def validation_split(self, ratio=0.1):
+        self._validation_index = int(self._dataset_size * (1 - ratio))
+        self._validation_index = min(self._dataset_size - 1,
+                                     self._validation_index)
+        return self
+
+    def batch(self, batch_size):
+        self._batch_size = batch_size
+        return self
+
+    def repeat(self, epochs):
+        self._epochs = epochs
+        return self
+
+    def map(self, func):
+        self._map = func
+
+    def map_offset_token(self, maxlen=None):
+        from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+        def _map(data):
+            X = [doc[:-1] for doc in data]
+            y = [doc[1:] for doc in data]
+            X = pad_sequences(X, maxlen=maxlen,
+                              padding="post", truncating="post")
+            y = pad_sequences(y, maxlen=maxlen,
+                              padding="post", truncating="post")
+            return X, y
+
+        self._map = _map
+
 # =============================================================================
 # Functions
 # =============================================================================
