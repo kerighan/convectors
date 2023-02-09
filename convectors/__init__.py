@@ -398,9 +398,29 @@ class WordVectors(Layer):
 
 
 class Dataset:
+    """
+    The Dataset class is a data structure used to represent and manipulate a
+    dataset used for training and validating NLP models
+
+    Attributes:
+    data (list): a list of data items to be processed.
+    shuffle (bool): a boolean indicating if the data should be shuffled before
+                    being processed. Defaults to True.
+    _dataset_size (int): the size of the dataset.
+    _data (list): the dataset.
+    _map (function): a function to be applied to the data items
+                     before processing.
+    _ind (np.ndarray): a numpy array used to index the data items.
+    _epochs (int): the number of times the data should be repeated.
+    _batch_size (int): the size of the batches of data to be processed.
+    _validation_index (int): the index separating the training
+                             and validation data.
+
+    """
     def __init__(self, data, shuffle=True):
         self._dataset_size = len(data)
         self._data = data
+        self._is_dataframe = isinstance(data, pd.DataFrame)
         self._map = lambda x: x
         self._ind = np.arange(self._dataset_size)
         self._epochs = 1
@@ -410,51 +430,144 @@ class Dataset:
         self._validation_index = self._dataset_size
 
     def __len__(self):
+        """
+        Returns the size of the dataset.
+
+        Returns:
+        int: the size of the dataset.
+
+        Example:
+        >>> data = [1, 2, 3, 4, 5]
+        >>> dataset = Dataset(data)
+        >>> len(dataset)
+        5
+        """
         return self._dataset_size
 
     @property
     def steps_per_epoch(self):
+        """
+        Returns the number of steps needed to process the training data
+        in one epoch.
+
+        Returns:
+        int: the number of steps.
+
+        Example:
+        >>> data = [1, 2, 3, 4, 5]
+        >>> dataset = Dataset(data)
+        >>> dataset.batch(2)
+        >>> dataset.steps_per_epoch
+        3
+        """
         return int(np.ceil(self._validation_index / self._batch_size))
 
     @property
     def validation_steps(self):
+        """
+        Returns the number of steps needed to process the validation data
+        in one epoch.
+
+        Returns:
+        int: the number of steps.
+
+        Example:
+        >>> data = [1, 2, 3, 4, 5]
+        >>> dataset = Dataset(data)
+        >>> dataset.validation_split(0.3)
+        >>> dataset.batch(2)
+        >>> dataset.validation_steps
+        2
+        """
         return int(np.ceil(
             (self._dataset_size - self._validation_index) / self._batch_size))
 
     @property
     def training_data(self):
+        """Generator for training data.
+
+        Yields:
+            tuple: Transformed training data in batches.
+        """
         from more_itertools import chunked
         indices = self._ind[:self._validation_index]
         for epoch in range(self._epochs):
             for batch_slice in chunked(indices, self._batch_size):
-                yield self._map(self._data[batch_slice])
+                if self._is_dataframe:
+                    yield self._map(self._data.iloc[batch_slice])
+                else:
+                    yield self._map(self._data[batch_slice])
 
     @property
     def validation_data(self):
+        """Generator for validation data.
+
+        Yields:
+            tuple: Transformed validation data in batches.
+        """
         from more_itertools import chunked
         indices = self._ind[self._validation_index:]
         for epoch in range(self._epochs):
             for batch_slice in chunked(indices, self._batch_size):
-                yield self._map(self._data[batch_slice])
+                if self._is_dataframe:
+                    yield self._map(self._data.iloc[batch_slice])
+                else:
+                    yield self._map(self._data[batch_slice])
 
     def validation_split(self, ratio=0.1):
+        """
+        Split the dataset into validation and training sets based on the ratio
+        provided.
+        By default, the validation set will consist of 10% of the data.
+
+        :param ratio: The ratio of the dataset to use as the validation set.
+        :return: self
+        """
         self._validation_index = int(self._dataset_size * (1 - ratio))
         self._validation_index = min(self._dataset_size - 1,
                                      self._validation_index)
         return self
 
     def batch(self, batch_size):
+        """
+        Set the batch size for the data.
+
+        :param batch_size: The batch size to use when generating
+                           batches of data.
+        :return: self
+        """
         self._batch_size = batch_size
         return self
 
     def repeat(self, epochs):
+        """
+        Repeat the data for a specified number of epochs.
+
+        :param epochs: The number of epochs to repeat the data.
+        :return: self
+        """
         self._epochs = epochs
         return self
 
     def map(self, func):
+        """
+        Apply a mapping function to the data.
+
+        :param func: The mapping function to apply to the data.
+        :return: self
+        """
         self._map = func
+        return self
 
     def map_offset_token(self, maxlen=None):
+        """
+        Map the data to include an offset token and pad the sequences
+        to a specified length.
+
+        :param maxlen: The maximum length to pad the sequences to.
+                       If None, the sequences will not be padded.
+        :return: self
+        """
         from tensorflow.keras.preprocessing.sequence import pad_sequences
 
         def _map(data):
@@ -467,6 +580,25 @@ class Dataset:
             return X, y
 
         self._map = _map
+        return self
+
+    def map_encoder_decoder(self, maxlen=None):
+        from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+        def _map(data):
+            X_1, out = data.iloc[:, 0], data.iloc[:, 1]
+            X_2 = [it[:-1] for it in out]
+            y = [it[1:] for it in out]
+            X_1 = pad_sequences(X_1, maxlen=maxlen,
+                                padding="post", truncating="post")
+            X_2 = pad_sequences(X_2, maxlen=maxlen,
+                                padding="post", truncating="post")
+            y = pad_sequences(y, maxlen=maxlen,
+                              padding="post", truncating="post")
+            return (X_1, X_2), y
+
+        self._map = _map
+        return self
 
 # =============================================================================
 # Functions
