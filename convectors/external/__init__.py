@@ -340,7 +340,24 @@ class Tiktokenize(Layer):
         document_wise=True,
         encoding="gpt2",
         offset=True,
-        special_tokens={"<|startoftext|>"}
+        special_tokens=[
+            "<|startoftext|>",
+            "<|startoftask|>",
+            "<|delim|>",
+            "<|sep|>",
+            "<|mask|>",
+            "<|unmask|>",
+            "<|unshuffle|>",
+            "<|translate|>",
+            "<|entailment|>",
+            "<|summarize|>",
+            "<|answer|>",
+            "<|dialog|>",
+            "<|classify|>",
+            "<|autoencode|>",
+            "<|language|>",
+            "<|keywords|>"
+        ]
     ):
         super().__init__(
             input, output, name, verbose, False)
@@ -349,8 +366,8 @@ class Tiktokenize(Layer):
         self.special_tokens = special_tokens
         self.offset = offset
         self.reload()
-    
-    def reload(self):
+
+    def reload(self, **_):
         from tiktoken.load import data_gym_to_mergeable_bpe_ranks
         from tiktoken.core import Encoding
         mergeable_ranks = data_gym_to_mergeable_bpe_ranks(
@@ -362,11 +379,12 @@ class Tiktokenize(Layer):
         for i, t in enumerate(self.special_tokens, 1):
             special_tokens[t] = 50256 + i
             self.allowed_special.add(t)
-        
+
         options = {
             "name": "gpt2",
             "explicit_n_vocab": 50257 + len(self.special_tokens),
-            "pat_str": r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""",
+            "pat_str": (r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| """
+                        r"""?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""),
             "mergeable_ranks": mergeable_ranks,
             "special_tokens": special_tokens,
         }

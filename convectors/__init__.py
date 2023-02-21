@@ -507,7 +507,7 @@ class Dataset:
         """
         from more_itertools import chunked
         indices = self._ind[self._validation_index:]
-        for epoch in range(self._epochs):
+        while True:
             for batch_slice in chunked(indices, self._batch_size):
                 if self._is_dataframe:
                     yield self._map(self._data.iloc[batch_slice])
@@ -596,6 +596,21 @@ class Dataset:
             y = pad_sequences(y, maxlen=maxlen,
                               padding="post", truncating="post")
             return (X_1, X_2), y
+
+        self._map = _map
+        return self
+
+    def map_autoencoder(self, maxlen=None):
+        from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+        def _map(data):
+            X = [it[:-1] for it in data]
+            y = [it[1:] for it in data]
+            X = pad_sequences(X, maxlen=maxlen,
+                              padding="post", truncating="post")
+            y = pad_sequences(y, maxlen=maxlen,
+                              padding="post", truncating="post")
+            return (X, X), y
 
         self._map = _map
         return self
