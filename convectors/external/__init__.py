@@ -356,7 +356,9 @@ class Tiktokenize(Layer):
             "<|classify|>",
             "<|autoencode|>",
             "<|language|>",
-            "<|keywords|>"
+            "<|keywords|>",
+            "<|question|>",
+            "<|context|>"
         ]
     ):
         super().__init__(
@@ -391,7 +393,7 @@ class Tiktokenize(Layer):
         enc = Encoding(**options)
         self.enc = enc
         self.n_features = self.enc.n_vocab
-    
+
     def process_doc(self, doc):
         if self.offset:
             return [

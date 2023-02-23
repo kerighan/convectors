@@ -582,8 +582,10 @@ class Dataset:
         self._map = _map
         return self
 
-    def map_encoder_decoder(self, maxlen=None):
+    def map_encoder_decoder(self, maxlen=None, out_maxlen=None):
         from tensorflow.keras.preprocessing.sequence import pad_sequences
+        if out_maxlen is None:
+            out_maxlen = maxlen
 
         def _map(data):
             X_1, out = data.iloc[:, 0], data.iloc[:, 1]
@@ -591,9 +593,9 @@ class Dataset:
             y = [it[1:] for it in out]
             X_1 = pad_sequences(X_1, maxlen=maxlen,
                                 padding="post", truncating="post")
-            X_2 = pad_sequences(X_2, maxlen=maxlen,
+            X_2 = pad_sequences(X_2, maxlen=out_maxlen,
                                 padding="post", truncating="post")
-            y = pad_sequences(y, maxlen=maxlen,
+            y = pad_sequences(y, maxlen=out_maxlen,
                               padding="post", truncating="post")
             return (X_1, X_2), y
 
@@ -611,6 +613,24 @@ class Dataset:
             y = pad_sequences(y, maxlen=maxlen,
                               padding="post", truncating="post")
             return (X, X), y
+
+        self._map = _map
+        return self
+
+    def map_triplet(self, maxlen=None):
+        from tensorflow.keras.preprocessing.sequence import pad_sequences
+
+        def _map(data):
+            anchor, positive, negative = (
+                data.iloc[:, 0], data.iloc[:, 1], data.iloc[:, 2])
+
+            anchor = pad_sequences(anchor, maxlen=maxlen,
+                                   padding="post", truncating="post")
+            positive = pad_sequences(positive, maxlen=maxlen,
+                                     padding="post", truncating="post")
+            negative = pad_sequences(negative, maxlen=maxlen,
+                                     padding="post", truncating="post")
+            return (anchor, positive, negative), anchor
 
         self._map = _map
         return self
