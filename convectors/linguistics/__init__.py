@@ -481,35 +481,62 @@ class NearDuplicates(Layer):
         output=None,
         name=None,
         threshold=.85,
+        ngram=3,
+        proj_dim=64,
+        k=30,
+        n_features=25000,
         verbose=True,
         parallel=False
     ):
         super().__init__(input, output, name, verbose, parallel)
         self.threshold = threshold
+        self.ngram = ngram
+        self.proj_dim = proj_dim
+        self.k = k
+        self.n_features = n_features
 
     def process_series(self, documents):
         from collections import Counter
-
-        from scipy.sparse.csgraph import connected_components
-
+        import numpy as np
+        import networkx as nx
         from ..embedding import TfIdf
-        nlp = NGram(ngram=3)
-        nlp += TfIdf(max_features=50000)
+        import hnswlib
+
+        nlp = NGram(ngram=self.ngram)
+        nlp += TfIdf(max_features=self.n_features)
         nlp.verbose = False
-        X = nlp(documents.str.lower())
-        A = X @ X.T
-        A.setdiag(0)
-        A = A >= self.threshold
-        _, labels = connected_components(
-            csgraph=A, directed=False, return_labels=True)
-        counter = Counter(labels)
-        label2bucket = {}
-        for i, (label, occ) in enumerate(counter.most_common()):
-            if occ == 1:
-                break
-            label2bucket[label] = i
-        labels = [label2bucket.get(label, -1) for label in labels]
-        return labels
+        X = nlp(documents)
+        n = len(documents)
+
+        P = np.random.normal(size=(X.shape[1], self.proj_dim))
+        X = X @ P
+        X += np.random.normal(size=X.shape, scale=1e-9)  # add small jitter
+        X /= np.linalg.norm(X, axis=1, keepdims=True)
+
+        index = hnswlib.Index(space='cosine', dim=self.proj_dim)
+        index.init_index(max_elements=n, ef_construction=200, M=16)
+        index.add_items(X, np.arange(n))
+
+        labels, distances = index.knn_query(X, k=25)
+        edges = []
+        for i, (neighbors, dists) in enumerate(zip(labels, distances)):
+            for j, dist in zip(neighbors, dists):
+                if j >= i:
+                    continue
+                if dist > 1 - self.threshold:
+                    break
+                edges.append((i, j))
+        G = nx.Graph()
+        G.add_edges_from(edges)
+        components = list(nx.connected_components(G))
+        components = sorted(components, key=len, reverse=True)
+
+        membership = [-1 for _ in range(n)]
+        for i, c in enumerate(components):
+            for doc in c:
+                membership[doc] = i
+        return membership
+
 
 
 class CountFilter(Layer):
