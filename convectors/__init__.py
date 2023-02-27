@@ -624,12 +624,12 @@ class Dataset:
             anchor, positive, negative = (
                 data.iloc[:, 0], data.iloc[:, 1], data.iloc[:, 2])
 
-            anchor = pad_sequences(anchor, maxlen=maxlen,
-                                   padding="post", truncating="post")
-            positive = pad_sequences(positive, maxlen=maxlen,
-                                     padding="post", truncating="post")
-            negative = pad_sequences(negative, maxlen=maxlen,
-                                     padding="post", truncating="post")
+            anchor = pad_sequences(
+                anchor, maxlen=maxlen, padding="post", truncating="post")
+            positive = pad_sequences(
+                positive, maxlen=maxlen, padding="post", truncating="post")
+            negative = pad_sequences(
+                negative, maxlen=maxlen, padding="post", truncating="post")
             return (anchor, positive, negative), anchor
 
         self._map = _map
