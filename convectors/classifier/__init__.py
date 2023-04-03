@@ -338,39 +338,74 @@ class Keras(Layer):
         assert model is not None
         self.options = options
         if "epochs" not in self.options:
-            options["epochs"] = 1
+            self.options["epochs"] = 1
         if "batch_size" not in self.options:
-            options["batch_size"] = 200
+            self.options["batch_size"] = 200
+        self._is_tflite_model = isinstance(model, bytes)
         self.model = model
+
         self.balance = balance
         self.validation_split = validation_split
         self.metric = metric
         self.trained = trained
 
     def unload(self):
-        self.weights = self.model.get_weights()
-        self.config = self.model.get_config()
-        del self.model
+        if not self._is_tflite_model:
+            self.weights = self.model.get_weights()
+            self.config = self.model.get_config()
+            del self.model
 
     def reload(self, custom_objects=None, **_):
-        from tensorflow.keras import models
-        try:
-            model = models.Model.from_config(
-                self.config, custom_objects=custom_objects)
-        except KeyError:
-            model = models.Sequential.from_config(
-                self.config, custom_objects=custom_objects)
-        model.set_weights(self.weights)
-        del self.weights
-        del self.config
-        self.model = model
+        if not self._is_tflite_model:
+            from tensorflow.keras import models
+            try:
+                model = models.Model.from_config(
+                    self.config, custom_objects=custom_objects)
+            except KeyError:
+                model = models.Sequential.from_config(
+                    self.config, custom_objects=custom_objects)
+            model.set_weights(self.weights)
+            del self.weights
+            del self.config
+            self.model = model
 
     def process_series(self, series):
         from scipy.sparse import issparse
         X = to_matrix(series)
         if issparse(X):
             X = np.array(X.todense())
-        return self.model.predict(X, verbose=False)
+
+        if not self._is_tflite_model:
+            return self.model.predict(
+                X, verbose=False,
+                batch_size=self.options["batch_size"])
+
+        from more_itertools import chunked
+        import tensorflow as tf
+        
+        interpreter = tf.lite.Interpreter(model_content=self.model)
+        output_tensors = []
+        input_details = interpreter.get_input_details()
+        output_index = interpreter.get_output_details()[0]["index"]
+
+        seq_len = int(X.shape[1])
+        last_batch_size = -1
+        for chunk in chunked(X, self.options["batch_size"]):
+            if last_batch_size != len(chunk):
+                interpreter.resize_tensor_input(
+                    input_details[0]['index'], (len(chunk), seq_len))
+                last_batch_size = len(chunk)
+                interpreter.allocate_tensors()
+
+            # Prepare the input tensor for prediction
+            input_tensor = np.array(chunk, dtype=X.dtype)
+            interpreter.set_tensor(0, input_tensor)
+
+            # Run the prediction and get the output tensor
+            interpreter.invoke()
+            out = interpreter.get_tensor(output_index)
+            output_tensors += list(out)
+        return np.array(output_tensors)
 
     def fit(self, series, y=None):
         from .layers import SaveBestModel

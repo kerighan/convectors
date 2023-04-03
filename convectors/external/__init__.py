@@ -395,6 +395,8 @@ class Tiktokenize(Layer):
         self.n_features = self.enc.n_vocab
 
     def process_doc(self, doc):
+        if not hasattr(self, "enc"):
+            self.reload()
         if self.offset:
             return [
                 it + 1

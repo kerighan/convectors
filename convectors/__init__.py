@@ -310,18 +310,6 @@ class WordVectors(Layer):
             )
 
     def process_series(self, series):
-        # dim = self.weights.shape[1]
-        # dtype = self.weights.dtype
-        # nan = np.empty(dim, dtype=dtype)
-        # nan[:] = np.nan
-        # X = []
-        # for x in series:
-        #     idx = self.feature2id.get(x)
-        #     if idx is not None:
-        #         X.append(self.weights[idx])
-        #     else:
-        #         X.append(nan)
-        # return np.array(X)
         return self._sequences(series)
 
     def save(self, filename):
