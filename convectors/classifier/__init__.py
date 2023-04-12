@@ -382,7 +382,7 @@ class Keras(Layer):
 
         from more_itertools import chunked
         import tensorflow as tf
-        
+
         interpreter = tf.lite.Interpreter(model_content=self.model)
         output_tensors = []
         input_details = interpreter.get_input_details()
