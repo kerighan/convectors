@@ -1,6 +1,9 @@
 import numpy as np
 
 from .. import Layer, to_matrix
+from more_itertools import chunked
+import tensorflow as tf
+from scipy.sparse import issparse
 
 
 class ClassifierLayer(Layer):
@@ -331,6 +334,7 @@ class Keras(Layer):
         name=None,
         verbose=True,
         trained=False,
+        jit_compile=False,
         **options
     ):
         super(Keras, self).__init__(
@@ -343,6 +347,12 @@ class Keras(Layer):
             self.options["batch_size"] = 200
         self._is_tflite_model = isinstance(model, bytes)
         self.model = model
+        if self._is_tflite_model:
+            self.interpreter = tf.lite.Interpreter(model_content=self.model)
+            self.input_details = self.interpreter.get_input_details(
+            )[0]['index']
+            self.output_index = self.interpreter.get_output_details(
+            )[0]["index"]
 
         self.balance = balance
         self.validation_split = validation_split
@@ -354,6 +364,8 @@ class Keras(Layer):
             self.weights = self.model.get_weights()
             self.config = self.model.get_config()
             del self.model
+        else:
+            del self.interpreter
 
     def reload(self, custom_objects=None, **_):
         if not self._is_tflite_model:
@@ -368,42 +380,40 @@ class Keras(Layer):
             del self.weights
             del self.config
             self.model = model
+        else:
+            self.interpreter = tf.lite.Interpreter(model_content=self.model)
 
     def process_series(self, series):
-        from scipy.sparse import issparse
-        X = to_matrix(series)
-        if issparse(X):
-            X = np.array(X.todense())
+        if not isinstance(series, np.ndarray):
+            X = to_matrix(series)
+            if issparse(X):
+                X = np.array(X.todense())
+        else:
+            X = series
 
         if not self._is_tflite_model:
             return self.model.predict(
                 X, verbose=False,
                 batch_size=self.options["batch_size"])
 
-        from more_itertools import chunked
-        import tensorflow as tf
-
-        interpreter = tf.lite.Interpreter(model_content=self.model)
         output_tensors = []
-        input_details = interpreter.get_input_details()
-        output_index = interpreter.get_output_details()[0]["index"]
 
         seq_len = int(X.shape[1])
         last_batch_size = -1
         for chunk in chunked(X, self.options["batch_size"]):
             if last_batch_size != len(chunk):
-                interpreter.resize_tensor_input(
-                    input_details[0]['index'], (len(chunk), seq_len))
+                self.interpreter.resize_tensor_input(
+                    self.input_details, (len(chunk), seq_len))
                 last_batch_size = len(chunk)
-                interpreter.allocate_tensors()
+                self.interpreter.allocate_tensors()
 
             # Prepare the input tensor for prediction
             input_tensor = np.array(chunk, dtype=X.dtype)
-            interpreter.set_tensor(0, input_tensor)
+            self.interpreter.set_tensor(0, input_tensor)
 
             # Run the prediction and get the output tensor
-            interpreter.invoke()
-            out = interpreter.get_tensor(output_index)
+            self.interpreter.invoke()
+            out = self.interpreter.get_tensor(self.output_index)
             output_tensors += list(out)
         return np.array(output_tensors)
 
