@@ -345,6 +345,7 @@ class Keras(Layer):
             self.options["epochs"] = 1
         if "batch_size" not in self.options:
             self.options["batch_size"] = 200
+
         self._is_tflite_model = isinstance(model, bytes)
         self.model = model
         if self._is_tflite_model:
@@ -382,6 +383,10 @@ class Keras(Layer):
             self.model = model
         else:
             self.interpreter = tf.lite.Interpreter(model_content=self.model)
+            self.input_details = self.interpreter.get_input_details(
+            )[0]['index']
+            self.output_index = self.interpreter.get_output_details(
+            )[0]["index"]
 
     def process_series(self, series):
         if not isinstance(series, np.ndarray):
