@@ -2,7 +2,6 @@ import numpy as np
 
 from .. import Layer, to_matrix
 from more_itertools import chunked
-import tensorflow as tf
 from scipy.sparse import issparse
 
 
@@ -349,6 +348,7 @@ class Keras(Layer):
         self._is_tflite_model = isinstance(model, bytes)
         self.model = model
         if self._is_tflite_model:
+            import tensorflow as tf
             self.interpreter = tf.lite.Interpreter(model_content=self.model)
             self.input_details = self.interpreter.get_input_details(
             )[0]['index']
@@ -382,6 +382,7 @@ class Keras(Layer):
             del self.config
             self.model = model
         else:
+            import tensorflow as tf
             self.interpreter = tf.lite.Interpreter(model_content=self.model)
             self.input_details = self.interpreter.get_input_details(
             )[0]['index']
