@@ -78,6 +78,8 @@ class Model:
         raise KeyError(f"Layer {key} not found")
 
     def __call__(self, df, *args, y=None):
+        if isinstance(df, str):
+            return self([df], *args, y=y)[0]
         if not isinstance(df, pd.DataFrame):
             return self.apply(df, *args, y=y)
         else:
