@@ -39,7 +39,8 @@ class BM25Vectorizer:
 
     def _bm25_weight(self, row, col, data, doc_id):
         """Compute individual BM25 weights"""
-        return (data * (self.k1 + 1)) / (data + self.denom[doc_id]) * self.idf[col]
+        return (data * (self.k1 + 1)) / (
+            data + self.denom[doc_id]) * self.idf[col]
 
     def transform(self, raw_documents):
         """
