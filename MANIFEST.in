@@ -1,3 +1,0 @@
-include convectors/ressources/lemma/*.p
-include convectors/ressources/ner/*.p
-include convectors/ressources/cooc/*.p

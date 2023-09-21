@@ -1,24 +1,17 @@
-from .classifier import (MLP, RNN, SVM, TFMLP, AdaBoost, Keras, RandomForest,
-                         XGBoost)
-from .embedding import (CountVectorizer, Doc2Vec, OddsVectorizer, OneHot,
-                        Sequence, TfIdf)
-from .linguistics import (NER, BPETokenize, Contract, CountFilter, FindAll,
-                          LangDetect, Lemmatize, NearDuplicates, NGram, Phrase,
-                          Snowball, Sub, Tokenize)
-from .multi import Merge
-from .preprocessing import Normalize, Pad
-from .reduction import NMF, PCA, SVD, UMAP, RandomizedSVD
-from .regressor import KerasRegressor, MLPRegressor
-from .special import Argmax, DomainName, Lambda, SplitHashtag
-from .external import Tiktokenize
+from .base_layer import Input
+from .merging import Concatenate
+from .preprocessing import Prefix, Suffix, Pad, DocumentSplitter, OneHot, Sub
+from .tokenizers import Tokenize, SnowballStem, Tiktokenize
+from .vectorizers import TfIdf, CountVectorizer, HashingVectorizer, BM25
+from .reduction import SVD
+from .operations import Lambda
+from .keras import Keras
+
 
 __all__ = [
-    "Tokenize", "Snowball", "Phrase", "Sub", "Contract", "FindAll",
-    "LangDetect", "TfIdf", "CountVectorizer", "Sequence", "OneHot",
-    "Doc2Vec", "SVD", "PCA", "NMF", "UMAP", "Lemmatize", "NGram",
-    "RandomForest", "AdaBoost", "SVM", "MLP", "Keras",
-    "XGBoost", "Merge", "Normalize", "SplitHashtag", "TFMLP",
-    "MLPRegressor", "KerasRegressor", "Lambda", "RNN", "DomainName",
-    "RandomizedSVD", "NER", "Argmax", "OddsVectorizer", "BPETokenize",
-    "CountFilter", "NearDuplicates", "Pad", "Tiktokenize"
+    "Input", "Tokenize", "SnowballStem", "Tiktokenize",
+    "Prefix", "Suffix", "Concatenate", "Pad", "DocumentSplitter", "OneHot",
+    "Sub", "TfIdf", "CountVectorizer", "HashingVectorizer", "BM25",
+    "SVD", "Lambda",
+    "Keras"
 ]
