@@ -727,8 +727,8 @@ def pmi_graph(
     from collections import Counter
 
     import networkx as nx
-    triplets = pmi(series, window_size=window_size, min_count=min_count,
-                   undirected=True, normalize=True, minimum=threshold)
+    triplets = pmi(series, window_size=window_size, min_cooc=min_count,
+                   undirected=True, normalize=True, threshold=threshold)
 
     counts = Counter(itertools.chain(*series))
 
