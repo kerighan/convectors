@@ -1,5 +1,5 @@
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, find
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import normalize
 
@@ -37,20 +37,20 @@ class BM25Vectorizer:
         self.denom = np.asarray(denom, dtype=np.float64).squeeze()
         return self
 
+    def _bm25_weight(self, row, col, data, doc_id):
+        """Compute individual BM25 weights"""
+        return (data * (self.k1 + 1)) / (data + self.denom[doc_id]) * self.idf[col]
+
     def transform(self, raw_documents):
         """
-        Transform documents to BM25 feature matrix.
+        Transform documents to BM25 feature matrix using vectorized operations.
         """
         X = self.vectorizer.transform(raw_documents)
-        values, rows, cols = [], [], []
-        for i in range(X.shape[0]):
-            row = X[i].tocoo()
-            for col, val in zip(row.col, row.data):
-                values.append(
-                    (val * (self.k1 + 1)) /
-                    (val + self.denom[i]) * self.idf[col])
-                rows.append(i)
-                cols.append(col)
+        rows, cols, data = find(X)
+
+        # Vectorized computation of BM25 weights
+        values = self._bm25_weight(rows, cols, data, rows)
+
         A = csr_matrix((values, (rows, cols)), shape=X.shape, dtype=self.dtype)
         normalize(A, norm="l2", axis=1, copy=False)
         return A
