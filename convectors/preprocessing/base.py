@@ -1,5 +1,6 @@
 from ..base_layer import Layer
 from typing import Any, Optional
+from .utils import NAME_TO_REGEX
 import numpy as np
 import re
 
@@ -66,24 +67,6 @@ class Pad(Layer):
 
 
 class Sub(Layer):
-    NAME_TO_REGEX = {
-        "url": r"((https?):((//)|(\\\\))+([\w\d:#@%/;$()~_?\+-=\\\.&](#!)?)*)",
-        "emoji": re.compile("(["                     # .* removed
-                            u"\U0001F600-\U0001F64F"  # emoticons
-                            u"\U0001F300-\U0001F5FF"  # symbols & pictographs
-                            u"\U0001F680-\U0001F6FF"  # transport & map symbols
-                            u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
-                            "])", flags=re.UNICODE),
-        "flag": re.compile(
-            u'(\U0001F1F2\U0001F1F4)|'       # Macau flag
-            u'([\U0001F1E6-\U0001F1FF]{2})'  # flags
-            "+", flags=re.UNICODE),
-        "hashtag": r"(\#[a-zA-Z0-9_]+\b)",
-        "mention": r"(\@[a-zA-Z0-9_]+\b)",
-        "email": r"([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)",
-        "coin": r"(\$[a-zA-Z]+\b)"
-    }
-
     def __init__(
         self,
         regex: str = "url",
@@ -92,8 +75,8 @@ class Sub(Layer):
         verbose: bool = False,
     ) -> None:
         super().__init__(name, verbose)
-        if regex in self.NAME_TO_REGEX:
-            regex = self.NAME_TO_REGEX[regex]
+        if regex in NAME_TO_REGEX:
+            regex = NAME_TO_REGEX[regex]
         else:
             regex = re.compile(regex)
         self.regex = regex
@@ -101,6 +84,24 @@ class Sub(Layer):
 
     def process_document(self, document: Any) -> Any:
         return re.sub(self.regex, self.replace, document)
+
+
+class FindAll(Layer):
+    def __init__(
+        self,
+        regex: str = "url",
+        name: Optional[str] = None,
+        verbose: bool = False,
+    ) -> None:
+        super().__init__(name, verbose)
+        if regex in NAME_TO_REGEX:
+            regex = NAME_TO_REGEX[regex]
+        else:
+            regex = re.compile(regex)
+        self.regex = regex
+
+    def process_document(self, document: Any) -> Any:
+        return re.findall(self.regex, document)
 
 
 class DocumentSplitter(Layer):

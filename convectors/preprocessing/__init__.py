@@ -1,3 +1,4 @@
-from .base import Prefix, Suffix, Pad, DocumentSplitter, OneHot, Sub
+from .base import Prefix, Suffix, Pad, DocumentSplitter, OneHot, Sub, FindAll
 
-__all__ = ["Prefix", "Suffix", "Pad", "DocumentSplitter", "OneHot", "Sub"]
+__all__ = ["Prefix", "Suffix", "Pad",
+           "DocumentSplitter", "OneHot", "Sub", "FindAll"]
