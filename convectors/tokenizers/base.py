@@ -2,6 +2,7 @@ from ..base_layer import Layer
 from functools import partial
 from .utils import tokenize
 from typing import Any, Callable, List, Optional, Set, Union, Dict
+import numpy as np
 
 
 class Tokenize(Layer):
