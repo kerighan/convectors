@@ -170,3 +170,23 @@ class SnowballStem(Layer):
             return words
         else:
             return [self._stemmer.stem(w) for w in text]
+
+
+class TokenMonster(Layer):
+    def __init__(
+        self,
+        model="english-32000-balanced-v1",
+        name: Optional[str] = None,
+        verbose: bool = False,
+    ) -> None:
+        import tokenmonster
+
+        super().__init__(name, verbose)
+        self.vocab = tokenmonster.load(model)
+        self.n_features = len(self.vocab)
+
+    def process_document(self, text: str) -> np.ndarray:
+        return self.vocab.tokenize(text)
+
+    def decode(self, tokens: np.ndarray) -> str:
+        return self.vocab.decode(tokens)
