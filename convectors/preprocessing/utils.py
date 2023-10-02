@@ -2,7 +2,7 @@ import re
 
 
 NAME_TO_REGEX = {
-    "url": r"((https?):((//)|(\\\\))+([\w\d:#@%/;$()~_?\+-=\\\.&](#!)?)*)",
+    "url": r"https?://[\w\d:#@%/;$()~_?\+-=\\\.&]+(?<!\.)",
     "emoji": re.compile("(["                     # .* removed
                         u"\U0001F600-\U0001F64F"  # emoticons
                         u"\U0001F300-\U0001F5FF"  # symbols & pictographs

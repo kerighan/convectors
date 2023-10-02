@@ -101,7 +101,8 @@ class FindAll(Layer):
         self.regex = regex
 
     def process_document(self, document: Any) -> Any:
-        return re.findall(self.regex, document)
+        res = re.findall(self.regex, document)
+        return res
 
 
 class DocumentSplitter(Layer):
