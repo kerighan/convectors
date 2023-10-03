@@ -232,6 +232,12 @@ class Model:
         else:
             return self._call(*args, batch_size=batch_size)
 
+    def __getitem__(self, layer_name):
+        for layer in self._topological_sort:
+            if layer.name == layer_name:
+                return layer
+        raise KeyError(f"Layer {layer_name} not found")
+
 
 def load_model(filename):
     import dill
