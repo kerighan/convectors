@@ -6,6 +6,7 @@ from typing import Any, Optional
 class VectorizerLayer(Layer):
     def fit(self, documents: Any, labels: Any = None) -> None:
         self._vectorizer.fit(documents)
+        self._trained = True
 
     @property
     def n_features(self) -> int:
@@ -32,6 +33,7 @@ class TfIdf(VectorizerLayer):
     ):
         super().__init__(name, verbose)
         from sklearn.feature_extraction.text import TfidfVectorizer
+
         self._sparse = sparse
         self._vectorizer = TfidfVectorizer(
             preprocessor=lambda x: x,
@@ -41,7 +43,8 @@ class TfIdf(VectorizerLayer):
             max_df=max_df,
             token_pattern=None,
             lowercase=lowercase,
-            **kwargs)
+            **kwargs
+        )
 
 
 class BM25(VectorizerLayer):
@@ -61,8 +64,10 @@ class BM25(VectorizerLayer):
     ):
         super().__init__(name, verbose)
         from .bm25 import BM25Vectorizer
+
         self._vectorizer = BM25Vectorizer(
-            k1=k1, b=b, max_features=max_features, **kwargs)
+            k1=k1, b=b, max_features=max_features, **kwargs
+        )
 
 
 class CountVectorizer(VectorizerLayer):
@@ -78,6 +83,7 @@ class CountVectorizer(VectorizerLayer):
     ):
         super().__init__(name, verbose)
         from sklearn.feature_extraction.text import CountVectorizer
+
         self._sparse = sparse
         self._vectorizer = CountVectorizer(
             preprocessor=lambda x: x,
@@ -87,7 +93,8 @@ class CountVectorizer(VectorizerLayer):
             max_df=max_df,
             token_pattern=None,
             lowercase=False,
-            **kwargs)
+            **kwargs
+        )
 
 
 class HashingVectorizer(VectorizerLayer):
@@ -103,6 +110,7 @@ class HashingVectorizer(VectorizerLayer):
     ):
         super().__init__(name, verbose)
         from sklearn.feature_extraction.text import HashingVectorizer
+
         self._sparse = sparse
         self._vectorizer = HashingVectorizer(
             preprocessor=lambda x: x,
@@ -111,7 +119,8 @@ class HashingVectorizer(VectorizerLayer):
             binary=binary,
             token_pattern=None,
             lowercase=lowercase,
-            **kwargs)
+            **kwargs
+        )
         self._n_features = n_features
 
     @property

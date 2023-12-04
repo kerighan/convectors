@@ -5,6 +5,7 @@ from typing import Any, Optional
 class ReductionLayer(Layer):
     def fit(self, documents: Any, labels: Any = None) -> None:
         self._reducer.fit(documents)
+        self._trained = True
 
     def process_documents(self, documents: Any) -> Any:
         res = self._reducer.transform(documents)
@@ -21,6 +22,7 @@ class SVD(ReductionLayer):
     ):
         super().__init__(name, verbose)
         from sklearn.decomposition import TruncatedSVD
+
         self.n_components = n_components
         self._reducer = TruncatedSVD(n_components=n_components, **kwargs)
 
@@ -35,5 +37,6 @@ class PCA(ReductionLayer):
     ):
         super().__init__(name, verbose)
         from sklearn.decomposition import PCA
+
         self.n_components = n_components
         self._reducer = PCA(n_components=n_components, **kwargs)

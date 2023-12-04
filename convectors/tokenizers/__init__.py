@@ -1,5 +1,5 @@
-from .base import Tokenize, SnowballStem, TokenMonster
+from .base import Tokenize, SnowballStem, TokenMonster, NGrams
 from .tiktoken import Tiktokenize
 
 
-__all__ = ["Tokenize", "SnowballStem", "Tiktokenize", "TokenMonster"]
+__all__ = ["Tokenize", "NGrams", "SnowballStem", "Tiktokenize", "TokenMonster"]

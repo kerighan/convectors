@@ -80,8 +80,7 @@ class Model:
 
         # call functions in topsort order
         remaining_calls = {
-            layer.name: len(layer._children)
-            for layer in self._topological_sort
+            layer.name: len(layer._children) for layer in self._topological_sort
         }
         for layer_name in self._output_layer_names:
             remaining_calls[layer_name] += 1
@@ -107,9 +106,9 @@ class Model:
             batch = []
             for arg in args:
                 if isinstance(arg, list):
-                    arg_batch = arg[index:index + batch_size]
+                    arg_batch = arg[index : index + batch_size]
                 elif isinstance(arg, pd.Series):
-                    arg_batch = arg.iloc[index:index + batch_size]
+                    arg_batch = arg.iloc[index : index + batch_size]
                 else:
                     arg_batch = []
                     for _ in range(batch_size):
@@ -139,43 +138,40 @@ class Model:
                 _return_single_element = False
         # in this case, encapsulate the string in a list
         if _return_single_element:
-            data = {
-                name: [arg]
-                for name, arg in zip(self._input_layer_names, args)
-            }
+            data = {name: [arg] for name, arg in zip(self._input_layer_names, args)}
         else:
-            data = {
-                name: arg for name, arg in zip(self._input_layer_names, args)
-            }
+            data = {name: arg for name, arg in zip(self._input_layer_names, args)}
 
         # call functions in topsort order
         remaining_calls = {
-            layer.name: len(layer._children)
-            for layer in self._topological_sort
+            layer.name: len(layer._children) for layer in self._topological_sort
         }
         for layer_name in self._output_layer_names:
+            remaining_calls[layer_name] += 1
+        for layer_name in self._input_layer_names:
             remaining_calls[layer_name] += 1
 
         # call functions in topsort order
         for layer in self._topological_sort:
-            # get inputs
             if len(layer._parents) == 0:
-                continue
+                antecedents = [layer]
             else:
-                if method == "auto":
-                    data[layer.name] = layer(
-                        *(data[parent.name] for parent in layer._parents))
-                elif method in {"fit_predict", "fit"} and layer._trainable:
-                    data[layer.name] = layer.fit_predict(
-                        *(data[parent.name] for parent in layer._parents))
-                else:
-                    data[layer.name] = layer.predict(
-                        *(data[parent.name] for parent in layer._parents))
+                antecedents = layer._parents
 
-                # remove a call from the remaining calls of the parents
-                for parent in layer._parents:
-                    remaining_calls[parent.name] -= 1
+            if method == "auto":
+                data[layer.name] = layer(*(data[parent.name] for parent in antecedents))
+            elif method in {"fit_predict", "fit"} and layer._trainable:
+                data[layer.name] = layer.fit_predict(
+                    *(data[parent.name] for parent in antecedents)
+                )
+            else:
+                data[layer.name] = layer.predict(
+                    *(data[parent.name] for parent in antecedents)
+                )
 
+            # remove a call from the remaining calls of the parents
+            for parent in antecedents:
+                remaining_calls[parent.name] -= 1
             # garbage collect
             for layer_name in remaining_calls:
                 if remaining_calls[layer_name] == 0:
@@ -188,7 +184,6 @@ class Model:
 
         if method == "fit":
             return self
-
         if _return_single_element:
             res = [data[name][0] for name in self._output_layer_names]
         else:
@@ -239,8 +234,24 @@ class Model:
         raise KeyError(f"Layer {layer_name} not found")
 
 
+class Sequential(Model):
+    def __init__(self, layers):
+        self._layers = layers
+        for parent, child in zip(layers[:-1], layers[1:]):
+            child.input(parent)
+        inputs = [layers[0]]
+        outputs = [layers[-1]]
+        super().__init__(inputs, outputs)
+
+    def add(self, layer):
+        layer.input(self._layers[-1])
+        self._layers.append(layer)
+        super().__init__(self._layers[0], self._layers[-1])
+
+
 def load_model(filename):
     import dill
+
     with open(filename, "rb") as f:
         model = dill.load(f)
     if not isinstance(model, Model):

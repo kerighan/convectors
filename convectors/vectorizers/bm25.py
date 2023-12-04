@@ -12,7 +12,8 @@ class BM25Vectorizer:
             token_pattern=None,
             max_features=max_features,
             tokenizer=lambda x: x,
-            preprocessor=lambda x: x)
+            preprocessor=lambda x: x,
+        )
         self.avg_doc_length = 0.0
         self.weights = None
         self.dtype = dtype
@@ -32,15 +33,14 @@ class BM25Vectorizer:
         self.idf = np.asarray(idf, dtype=self.dtype)
 
         # Compute document-specific denominators for scoring formula
-        denom = self.k1 * (
-            1 - self.b + self.b * doc_lengths / self.avg_doc_length)
+        denom = self.k1 * (1 - self.b + self.b * doc_lengths / self.avg_doc_length)
         self.denom = np.asarray(denom, dtype=np.float64).squeeze()
+        self._trained = True
         return self
 
     def _bm25_weight(self, row, col, data, doc_id):
         """Compute individual BM25 weights"""
-        return (data * (self.k1 + 1)) / (
-            data + self.denom[doc_id]) * self.idf[col]
+        return (data * (self.k1 + 1)) / (data + self.denom[doc_id]) * self.idf[col]
 
     def transform(self, raw_documents):
         """

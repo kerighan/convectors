@@ -27,11 +27,7 @@ class Layer:
 
     """
 
-    def __init__(
-        self,
-        name: Optional[str] = None,
-        verbose: bool = False
-    ) -> None:
+    def __init__(self, name: Optional[str] = None, verbose: bool = False) -> None:
         self.name: str = name or camel_to_snake(self.__class__.__name__)
         self.verbose: bool = verbose
         self._children: List[Layer] = []
@@ -129,6 +125,7 @@ class Layer:
             The name of the file to save the layer to.
         """
         import dill
+
         parents_copy = self._parents[:]
         children_copy = self._children[:]
         self._parents = []
@@ -213,13 +210,7 @@ class Input(Layer):
 
     _trainable = False
 
-    def __init__(
-        self,
-        max_length=None,
-        dtype=str,
-        force_dtype=True,
-        name=None
-    ):
+    def __init__(self, max_length=None, dtype=str, force_dtype=True, name=None):
         super().__init__(name)
         self._max_length = max_length
         self._dtype = dtype

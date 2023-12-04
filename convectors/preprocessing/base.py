@@ -57,11 +57,9 @@ class Pad(Layer):
                 padded_documents.append(doc[:maxlen])
             else:
                 if self.pad == "post":
-                    padded_doc = np.pad(
-                        doc, (0, maxlen - len(doc)), mode='constant')
+                    padded_doc = np.pad(doc, (0, maxlen - len(doc)), mode="constant")
                 elif self.pad == "pre":
-                    padded_doc = np.pad(
-                        doc, (maxlen - len(doc), 0), mode='constant')
+                    padded_doc = np.pad(doc, (maxlen - len(doc), 0), mode="constant")
                 padded_documents.append(padded_doc)
         return np.array(padded_documents)
 
@@ -252,6 +250,23 @@ class OneHot(Layer):
 
     def get_decoder(self):
         from copy import deepcopy
+
         obj = deepcopy(self)
         obj._decode_mode = True
         return obj
+
+
+class Normalize(Layer):
+    def __init__(
+        self,
+        norm: str = "l2",
+        name: Optional[str] = None,
+        verbose: bool = False,
+    ) -> None:
+        super().__init__(name, verbose)
+        self.norm = norm
+
+    def process_documents(self, documents: Any) -> Any:
+        from sklearn.preprocessing import normalize
+
+        return normalize(documents, norm=self.norm)

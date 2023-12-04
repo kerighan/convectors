@@ -49,7 +49,7 @@ class Tokenize(Layer):
         word_tokenize: bool = True,
         lower: bool = True,
         name: Optional[str] = None,
-        verbose: bool = False
+        verbose: bool = False,
     ):
         super().__init__(name, verbose)
         if stopwords is not None:
@@ -57,6 +57,7 @@ class Tokenize(Layer):
                 self._stopwords = stopwords
             else:
                 from .stopwords import stopwords as sw
+
                 self._stopwords = set()
                 for item in stopwords:
                     self._stopwords.update(sw[item])
@@ -76,7 +77,61 @@ class Tokenize(Layer):
             strip_punctuation=self._strip_punctuation,
             sentence_tokenize=self._sentence_tokenize,
             word_tokenize=self._word_tokenize,
-            lower=self._lower)
+            lower=self._lower,
+        )
+
+
+class NGrams(Layer):
+    """
+    This class represents a layer that creates n-grams from the input. It
+    inherits from the Layer class and overrides the constructor to handle
+    n-grams parameters.
+
+    Parameters
+    ----------
+    n : int, optional
+        The size of the n-grams to create. Default is 2.
+    lower : bool, optional
+        If True, the input will be converted to lower case during tokenization.
+    name : str, optional
+        The name of the layer. If not given, the name will be derived from the
+        class name.
+    verbose : bool, optional
+        If True, the layer will output verbose messages during execution.
+        Default is True.
+
+    """
+
+    _trainable = False
+
+    def __init__(
+        self,
+        n: int = 2,
+        lower: Optional[bool] = True,
+        name: Optional[str] = None,
+        verbose: bool = False,
+    ) -> None:
+        super().__init__(name, verbose)
+        self._n = n
+        self._lower = lower
+
+    def process_document(self, text: List[str]) -> List[str]:
+        """
+        Process a document by creating n-grams from it.
+
+        Parameters
+        ----------
+        text : list
+            The document to process, as a list of words.
+
+        Returns
+        -------
+        ngrams : list
+            The n-grams of the document, as a list of words.
+        """
+        if self._lower:
+            text = text.lower()
+        return [text[i : i + self._n] for i in range(len(text) - self._n + 1)]
 
 
 class SnowballStem(Layer):
@@ -119,7 +174,7 @@ class SnowballStem(Layer):
         "fi": "finnish",
         "hu": "hungarian",
         "ro": "romanian",
-        "ru": "russian"
+        "ru": "russian",
     }
 
     def __init__(
@@ -141,6 +196,7 @@ class SnowballStem(Layer):
 
     def _reload(self, **_: Any) -> None:
         from nltk.stem.snowball import SnowballStemmer
+
         self._stemmer = SnowballStemmer(self._lang)
         self._word2stem: Dict[str, str] = {}
 
