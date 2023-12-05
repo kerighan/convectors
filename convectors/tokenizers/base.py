@@ -1,6 +1,7 @@
 from ..base_layer import Layer
 from functools import partial
 from .utils import tokenize
+from unidecode import unidecode
 from typing import Any, Callable, List, Optional, Set, Union, Dict
 import numpy as np
 
@@ -106,13 +107,15 @@ class NGrams(Layer):
 
     def __init__(
         self,
-        n: int = 2,
+        n: Any = 2,
         lower: Optional[bool] = True,
+        ignore_accents: Optional[bool] = True,
         name: Optional[str] = None,
         verbose: bool = False,
     ) -> None:
         super().__init__(name, verbose)
         self._n = n
+        self._ignore_accents = ignore_accents
         self._lower = lower
 
     def process_document(self, text: List[str]) -> List[str]:
@@ -131,7 +134,18 @@ class NGrams(Layer):
         """
         if self._lower:
             text = text.lower()
-        return [text[i : i + self._n] for i in range(len(text) - self._n + 1)]
+        if self._ignore_accents:
+            text = unidecode(text)
+        if isinstance(self._n, list):
+            ngrams = []
+            for n in self._n:
+                ngrams.extend(self._create_ngrams(text, n))
+            return ngrams
+        else:
+            return self._create_ngrams(text, self._n)
+
+    def _create_ngrams(self, text: List[str], n: int) -> List[str]:
+        return [text[i : i + n] for i in range(len(text) - n + 1)]
 
 
 class SnowballStem(Layer):
