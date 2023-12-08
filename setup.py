@@ -9,12 +9,20 @@ setuptools.setup(
     url="https://github.com/kerighan/convectors",
     packages=setuptools.find_packages(),
     install_requires=[
-        "nltk>=3.8.1", "numpy", "scikit-learn", "scipy",
-        "tqdm", "pandas", "dill", "emoji", "tiktoken"
+        "nltk>=3.8.1",
+        "numpy",
+        "scikit-learn",
+        "scipy",
+        "tqdm",
+        "pandas",
+        "dill",
+        "emoji",
+        "tiktoken",
+        "unidecode",
     ],
     include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3.8",
         "Operating System :: OS Independent",
-    ]
+    ],
 )
