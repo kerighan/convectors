@@ -153,7 +153,6 @@ class Model:
 
         # call functions in topsort order
         for layer in self._topological_sort:
-            print(layer, method)
             if len(layer._parents) == 0:
                 antecedents = [layer]
             else:
