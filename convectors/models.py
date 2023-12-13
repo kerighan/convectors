@@ -153,10 +153,15 @@ class Model:
 
         # call functions in topsort order
         for layer in self._topological_sort:
+            print(layer, method)
             if len(layer._parents) == 0:
                 antecedents = [layer]
             else:
                 antecedents = layer._parents
+
+            if layer.__class__.__name__ == "Input":
+                remaining_calls[layer.name] -= 1
+                continue
 
             if method == "auto":
                 data[layer.name] = layer(*(data[parent.name] for parent in antecedents))
@@ -236,6 +241,9 @@ class Model:
 
 class Sequential(Model):
     def __init__(self, layers):
+        from .layers import Input
+
+        layers = [Input()] + layers
         self._layers = layers
         for parent, child in zip(layers[:-1], layers[1:]):
             child.input(parent)
