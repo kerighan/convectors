@@ -183,7 +183,11 @@ class KDTree(Layer):
                 if len(row) == 0:
                     res.append(None)
                 else:
-                    res.append(self._index_to_doc[row[0]])
+                    if self._threshold is not None:
+                        if dists < self._threshold:
+                            res.append(self._index_to_doc[row[0]])
+                        else:
+                            res.append(None)
             else:
                 if self._threshold is not None:
                     row = [i for i, d in zip(row, dists) if d < self._threshold]
