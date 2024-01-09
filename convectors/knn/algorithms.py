@@ -179,8 +179,13 @@ class KDTree(Layer):
         distances, ids = self._model.query(X, k=self._k)
         res = []
         for row, dists in zip(ids, distances):
-            for i, d in zip(row, dists):
-                if self._threshold is not None and d > self._threshold:
+            if self._k == 1:
+                if len(row) == 0:
                     res.append(None)
-                res.append(self._index_to_doc[i])
+                else:
+                    res.append(self._index_to_doc[row[0]])
+            else:
+                if self._threshold is not None:
+                    row = [i for i, d in zip(row, dists) if d < self._threshold]
+                res.append([self._index_to_doc[i] for i in row])
         return res
