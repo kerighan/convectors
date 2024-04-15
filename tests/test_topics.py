@@ -17,7 +17,6 @@ import pandas as pd
 # df.to_pickle("content.p")
 df = pd.read_pickle("content.p")
 data = df.content.tolist()
-# print(df)
 topic_info = text_graph_topics(data)
 print(topic_info)
 # newsgroups_train = fetch_20newsgroups(subset="train")
