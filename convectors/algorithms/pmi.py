@@ -158,7 +158,7 @@ def summarize(text, n=5, itemize=True, boost_words=None, boost_value=2):
     # remove near duplicates
     indices = remove_near_duplicates(top_sentences, threshold=0.7)
     top_sentences = [top_sentences[i] for i in indices]
-    top_sentences = [it for it in top_sentences if len(it) > 25][:n]
+    top_sentences = [it for it in top_sentences if len(it) > 30][:n]
 
     if itemize:
         top_sentences = "- " + "\n- ".join(top_sentences)
@@ -188,8 +188,6 @@ def text_graph_topics(
     tokenize = Tokenize(stopwords=stopwords)
     processed_data = tokenize(data)
 
-    # G_pmi = pmi(processed_data, window_size=10, min_df=10, max_df=0.33)
-
     G = text_graph(
         processed_data,
         window_size=window_size,
@@ -201,7 +199,6 @@ def text_graph_topics(
         max_features=max_features,
         verbose=verbose,
     )
-    # pr = nx.pagerank(G)
 
     coms = algorithms.louvain(G, weight="weight")
     node2cm = coms.to_node_community_map()
@@ -231,14 +228,11 @@ def text_graph_topics(
         try:
             pr = nx.eigenvector_centrality(H)
         except:
-            pr = nx.pagerank(H)
+            pr = nx.degree_centrality(H)
         topic_words.append(sorted(cm2words[cm], key=lambda x: pr[x], reverse=True))
         topic_docs.append(sorted(cm2docs[cm], key=lambda x: pr[x], reverse=True))
         topic_text = "\n".join([data[doc] for doc in topic_docs[-1][:top_n_docs]])
         topic_summary.append(summarize(topic_text, boost_words=topic_words[-1]))
-        # print(topic_words[-1][:10])
-        # print(topic_summary[-1])
-        # print("---")
 
     topic_info = pd.DataFrame()
     topic_info["words"] = topic_words
