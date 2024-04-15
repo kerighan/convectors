@@ -17,7 +17,9 @@ def test_concatenate():
     model = Model(inputs=[input_layer1, input_layer2], outputs=concat_layer)
     processed_data = model(data1, data2)
     assert processed_data == [
-        "This is a sample sentence.", "This is another longer sentence."]
+        "This is a sample sentence.",
+        "This is another longer sentence.",
+    ]
 
 
 def test_tokenize():
@@ -26,15 +28,12 @@ def test_tokenize():
     tokenize = Tokenize()
     assert tokenize("Hello world!") == ["hello", "world"]
 
-    tokenize_2 = Tokenize(
-        stopwords=["en"], strip_accents=True, name="tokenize_2")
+    tokenize_2 = Tokenize(stopwords=["en"], strip_accents=True, name="tokenize_2")
 
     # Pass some data through the pipeline
     data = ["This is a sample sentence.", "This is another sample sentence."]
     processed_data = tokenize_2(data)
-    assert processed_data == [
-        ['sample', 'sentence'], ['another', 'sample', 'sentence']
-    ]
+    assert processed_data == [["sample", "sentence"], ["another", "sample", "sentence"]]
 
 
 def test_snowball():
@@ -43,19 +42,18 @@ def test_snowball():
 
     input_layer = Input()
     tokenize = Tokenize().input(input_layer)
-    stem = SnowballStem(lang='en').input(tokenize)
+    stem = SnowballStem(lang="en").input(tokenize)
 
     model = Model(inputs=input_layer, outputs=stem)
     processed_data = model("This is a sample sentence.")
-    assert processed_data == ['this', 'is', 'a', 'sampl', 'sentenc']
+    assert processed_data == ["this", "is", "a", "sampl", "sentenc"]
 
     processed_data = model(["This is a sample sentence."])
-    assert processed_data == [['this', 'is', 'a', 'sampl', 'sentenc']]
+    assert processed_data == [["this", "is", "a", "sampl", "sentenc"]]
 
 
 def test_vectorizers():
-    from convectors.layers import (
-        Tokenize, Input, TfIdf, HashingVectorizer, SVD)
+    from convectors.layers import Tokenize, Input, TfIdf, HashingVectorizer, SVD
     from convectors.models import Model
 
     input_layer = Input()
@@ -67,18 +65,27 @@ def test_vectorizers():
 
     model = Model(inputs=input_layer, outputs=[tfidf, svd])
     # fit
-    model.fit(["This is a sample sentence.",
-               "This is another sample sentence.",
-               "This is a third sample sentence."])
+    model.fit(
+        [
+            "This is a sample sentence.",
+            "This is another sample sentence.",
+            "This is a third sample sentence.",
+        ]
+    )
     # transform
     vec_1, vec_2 = model("This is a fourth sentence.")
-    print(vec_1)
-    print(vec_2)
 
 
 def test_batch():
     from convectors.layers import (
-        Input, Tiktokenize, Lambda, Pad, DocumentSplitter, Suffix, Prefix)
+        Input,
+        Tiktokenize,
+        Lambda,
+        Pad,
+        DocumentSplitter,
+        Suffix,
+        Prefix,
+    )
     from convectors.models import Model
 
     input_layer = Input()
@@ -103,4 +110,8 @@ def test_batch():
 
 
 if __name__ == "__main__":
+    test_concatenate()
+    test_tokenize()
+    test_snowball()
+    test_vectorizers()
     test_batch()

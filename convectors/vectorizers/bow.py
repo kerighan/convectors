@@ -23,7 +23,7 @@ class TfIdf(VectorizerLayer):
     def __init__(
         self,
         max_features: Optional[int] = None,
-        min_df: int = 0,
+        min_df: float = 0.0,
         max_df: float = 1.0,
         lowercase: bool = True,
         sparse: bool = True,

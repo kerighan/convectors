@@ -30,6 +30,9 @@ class Tokenize(Layer):
     lower : bool, optional
         If True, the input will be converted to lower case during tokenization.
         Default is True.
+    split_lines : bool, optional
+        If True, the input will be split into lines before tokenization. Default
+        is False.
     name : str, optional
         The name of the layer. If not given, the name will be derived from the
         class name.
@@ -49,6 +52,7 @@ class Tokenize(Layer):
         sentence_tokenize: bool = False,
         word_tokenize: bool = True,
         lower: bool = True,
+        split_lines: bool = False,
         name: Optional[str] = None,
         verbose: bool = False,
     ):
@@ -69,6 +73,7 @@ class Tokenize(Layer):
         self._sentence_tokenize = sentence_tokenize
         self._word_tokenize = word_tokenize
         self._lower = lower
+        self._split_lines = split_lines
 
         # create document processing partial function
         self.process_document: Callable[..., List[str]] = partial(
@@ -79,6 +84,7 @@ class Tokenize(Layer):
             sentence_tokenize=self._sentence_tokenize,
             word_tokenize=self._word_tokenize,
             lower=self._lower,
+            split_lines=self._split_lines,
         )
 
 

@@ -255,6 +255,10 @@ class Sequential(Model):
         self._layers.append(layer)
         super().__init__(self._layers[0], self._layers[-1])
 
+    def __iadd__(self, layer):
+        self.add(layer)
+        return self
+
 
 def load_model(filename):
     import dill

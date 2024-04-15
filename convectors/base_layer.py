@@ -186,6 +186,26 @@ class Layer:
     def __repr__(self) -> str:
         return f"{self.name}"
 
+    def __iadd__(self, layer: "Layer") -> "Layer":
+        """
+        Binds the given layer to the current layer by creating a Model.
+
+        Parameters
+        ----------
+        layer : Layer
+            The layer to be bound to the current layer.
+
+        Returns
+        -------
+        Layer
+            The current layer with the bound layer.
+
+        """
+        from .models import Sequential
+
+        model = Sequential([self, layer])
+        return model
+
 
 class Input(Layer):
     """
