@@ -236,9 +236,9 @@ def text_graph_topics(
         topic_docs.append(sorted(cm2docs[cm], key=lambda x: pr[x], reverse=True))
         topic_text = "\n".join([data[doc] for doc in topic_docs[-1][:top_n_docs]])
         topic_summary.append(summarize(topic_text, boost_words=topic_words[-1]))
-        print(topic_words[-1][:10])
-        print(topic_summary[-1])
-        print("---")
+        # print(topic_words[-1][:10])
+        # print(topic_summary[-1])
+        # print("---")
 
     topic_info = pd.DataFrame()
     topic_info["words"] = topic_words
