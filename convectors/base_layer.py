@@ -186,7 +186,30 @@ class Layer:
     def __repr__(self) -> str:
         return f"{self.name}"
 
-    def __iadd__(self, layer: "Layer") -> "Layer":
+    def __add__(self, layer: Union["Layer", "Sequential"]) -> "Sequential":
+        """
+        Binds the given layer to the current layer by creating a Model.
+
+        Parameters
+        ----------
+        layer : Layer
+            The layer to be bound to the current layer.
+
+        Returns
+        -------
+        Layer
+            The current layer with the bound layer.
+
+        """
+        from .models import Sequential
+
+        if isinstance(layer, Sequential):
+            model = Sequential([self] + layer.layers)
+        else:
+            model = Sequential([self, layer])
+        return model
+
+    def __iadd__(self, layer: "Layer") -> "Sequential":
         """
         Binds the given layer to the current layer by creating a Model.
 
