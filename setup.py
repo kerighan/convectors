@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="convectors",
-    version="1.0.0",
+    version="1.0.1",
     author="Maixent Chenebaux",
     description="NLP package",
     long_description_content_type="text/markdown",
