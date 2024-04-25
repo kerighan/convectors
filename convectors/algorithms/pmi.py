@@ -151,7 +151,10 @@ def summarize(text, n=5, itemize=True, boost_words=None, boost_value=2):
 
     # create graph from adjacency sparse array
     G = nx.from_scipy_sparse_array(A)
-    pr = nx.eigenvector_centrality(G)
+    try:
+        pr = nx.eigenvector_centrality(G)
+    except nx.exception.PowerIterationFailedConvergence:
+        pr = nx.pagerank(G)
     top_sentences = sorted(pr, key=pr.get, reverse=True)
     top_sentences = [sentences[i].strip() for i in top_sentences]
 
