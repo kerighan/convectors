@@ -181,15 +181,19 @@ def text_graph_topics(
     min_docs=4,
     top_n_docs=10,
     stopwords=["fr", "en", "url", "media"],
+    shuffle=False,
     verbose=True,
 ):
     from convectors.layers import Tokenize
     from .duplicates import remove_near_duplicates
     from cdlib import algorithms
     import pandas as pd
+    import random
 
     tokenize = Tokenize(stopwords=stopwords)
     processed_data = tokenize(data)
+    if shuffle:
+        processed_data = [random.sample(text, len(text)) for text in processed_data]
 
     G = text_graph(
         processed_data,
@@ -221,26 +225,46 @@ def text_graph_topics(
 
     topic_words = []
     topic_docs = []
-    topic_summary = []
+    topic_summaries = []
     for cm in cm2docs:
         docs = cm2docs[cm]
         if len(docs) < min_docs:
             continue
+
         nodes = docs.union(cm2words[cm])
         H = nx.subgraph(G, nodes)
         try:
             pr = nx.eigenvector_centrality(H)
         except:
             pr = nx.degree_centrality(H)
-        topic_words.append(sorted(cm2words[cm], key=lambda x: pr[x], reverse=True))
-        topic_docs.append(sorted(cm2docs[cm], key=lambda x: pr[x], reverse=True))
-        topic_text = "\n".join([data[doc] for doc in topic_docs[-1][:top_n_docs]])
-        topic_summary.append(summarize(topic_text, boost_words=topic_words[-1]))
+        sorted_words = sorted(cm2words[cm], key=lambda x: pr[x], reverse=True)
+
+        doc_scores = {}
+        for doc in docs:
+            doc_text_tokens = processed_data[doc]
+            score = sum(
+                pr[word] for word in sorted_words if word in doc_text_tokens
+            )  # Use PageRank values as weights
+            doc_scores[doc] = score
+
+        best_docs = sorted(
+            doc_scores, key=doc_scores.get, reverse=True
+        )  # Also keep top_n_docs sorted by their score
+
+        # topic_text = "\n".join([data[doc] for doc in topic_docs[-1][:top_n_docs]])
+        topic_text = "\n".join([data[doc] for doc in best_docs[:top_n_docs]])
+        topic_summary = summarize(topic_text, boost_words=sorted_words)
+
+        topic_words.append(sorted_words)
+        topic_docs.append(best_docs)
+        topic_summaries.append(topic_summary)
 
     topic_info = pd.DataFrame()
     topic_info["words"] = topic_words
     topic_info["docs"] = topic_docs
-    topic_info["summary"] = topic_summary
-    topic_info["n_docs"] = topic_info.docs.apply(len)
-    topic_info = topic_info.sort_values("n_docs", ascending=False)
+    topic_info["summary"] = topic_summaries
+    topic_info["n_docs"] = topic_info["docs"].apply(len)
+    topic_info = topic_info.sort_values("n_docs", ascending=False).reset_index(
+        drop=True
+    )
     return topic_info
