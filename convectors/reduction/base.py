@@ -40,3 +40,22 @@ class PCA(ReductionLayer):
 
         self.n_components = n_components
         self._reducer = PCA(n_components=n_components, **kwargs)
+
+
+class UMAP(ReductionLayer):
+    def __init__(
+        self,
+        n_components: int = 2,
+        n_neighbors: int = 15,
+        name: Optional[str] = None,
+        verbose: bool = False,
+        **kwargs: Any
+    ):
+        super().__init__(name, verbose)
+        from umap import UMAP
+
+        self.n_components = n_components
+        self.n_neighbors = n_neighbors
+        self._reducer = UMAP(
+            n_components=n_components, n_neighbors=n_neighbors, **kwargs
+        )

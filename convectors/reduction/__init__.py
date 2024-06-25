@@ -1,3 +1,3 @@
-from .base import SVD
+from .base import SVD, PCA, UMAP
 
-__all__ = ["SVD"]
+__all__ = ["SVD", "PCA", "UMAP"]
