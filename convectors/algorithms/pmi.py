@@ -118,57 +118,6 @@ def text_graph(
     return G_pmi
 
 
-def summarize(text, n=5, itemize=True, boost_words=None, boost_value=2):
-    from convectors.layers import Tokenize, TfIdf, SnowballStem
-    from .duplicates import remove_near_duplicates
-    from sklearn.preprocessing import normalize
-
-    sentence_tokenize = Tokenize(
-        sentence_tokenize=True,
-        word_tokenize=False,
-        strip_accents=False,
-        strip_punctuation=False,
-        lower=False,
-        split_lines=True,
-    )
-    sentences = sentence_tokenize(text)
-
-    vectorizer = Tokenize(stopwords=["fr", "en", "media", "url"])
-    vectorizer += SnowballStem()
-    vectorizer += TfIdf()
-
-    X = vectorizer(sentences)
-
-    if boost_words is not None:
-        boost_words_ids = vectorizer(" ".join(boost_words)).indices
-        for x in boost_words_ids:
-            X[:, x] *= boost_value
-        normalize(X, norm="l2", axis=1, copy=False)
-
-    A = X.dot(X.T)
-    # remove diag
-    A.setdiag(0)
-
-    # create graph from adjacency sparse array
-    G = nx.from_scipy_sparse_array(A)
-    try:
-        pr = nx.eigenvector_centrality(G)
-    except nx.exception.PowerIterationFailedConvergence:
-        pr = nx.pagerank(G)
-    top_sentences = sorted(pr, key=pr.get, reverse=True)
-    top_sentences = [sentences[i].strip() for i in top_sentences]
-
-    # remove near duplicates
-    indices = remove_near_duplicates(top_sentences, threshold=0.7)
-    top_sentences = [top_sentences[i] for i in indices]
-    top_sentences = [it for it in top_sentences if len(it) > 30][:n]
-
-    if itemize:
-        top_sentences = "- " + "\n- ".join(top_sentences)
-
-    return top_sentences
-
-
 def text_graph_topics(
     data,
     window_size=20,
@@ -186,7 +135,9 @@ def text_graph_topics(
 ):
     from convectors.layers import Tokenize
     from .duplicates import remove_near_duplicates
-    from cdlib import algorithms
+
+    # from cdlib import algorithms
+    from louvain_numba import best_partition
     import pandas as pd
     import random
 
@@ -207,8 +158,14 @@ def text_graph_topics(
         verbose=verbose,
     )
 
-    coms = algorithms.louvain(G, weight="weight")
-    node2cm = coms.to_node_community_map()
+    # coms = algorithms.louvain(G, weight="weight")
+    node2cm = best_partition(G)
+    import matplotlib.pyplot as plt
+
+    # nx.draw(G, node_color=list(node2cm.values()), with_labels=True)
+    # plt.show()
+
+    # node2cm = coms.to_node_community_map()
     cm2words = {}
     cm2docs = {}
 
