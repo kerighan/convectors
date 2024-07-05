@@ -259,6 +259,10 @@ class Sequential(Model):
         self.add(layer)
         return self
 
+    def __add__(self, layer):
+        new_model = Sequential(self._layers + [layer])
+        return new_model
+
 
 def load_model(filename):
     import dill

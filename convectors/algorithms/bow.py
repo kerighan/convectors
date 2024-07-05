@@ -1,4 +1,42 @@
 import numpy as np
+import networkx as nx
+import pandas as pd
+from scipy import sparse
+from convectors.layers import Tokenize, TfIdf
+from .duplicates import remove_near_duplicates
+from convectors.algorithms.summarization import summarize
+from cityhash import CityHash64
+
+# from louvain_numba import best_partition
+from joblib import Parallel, delayed
+
+
+def process_topic(cm, nodes, G, X, features, data, top_n_docs):
+    from community import best_partition
+
+    H = G.subgraph(nodes)
+    try:
+        pr = nx.eigenvector_centrality(H, max_iter=100, tol=1e-4)
+    except:
+        pr = nx.degree_centrality(H)
+
+    best_docs = sorted(nodes, key=lambda x: pr[x], reverse=True)[:top_n_docs]
+
+    feats = X[nodes].sum(axis=0).A1
+    best_feats = np.argsort(feats)[::-1][:10]
+    words = [features[i] for i in best_feats]
+
+    topic_text = "\n".join([data[node] for node in best_docs])
+    topic_summary = summarize(topic_text, n=10, boost_words=words)
+    topic_hash = str(CityHash64(topic_summary.encode()) % 100000000)
+
+    return {
+        "summary": topic_summary,
+        "docs": [data[node] for node in best_docs],
+        "words": words,
+        "topic_id": topic_hash,
+        "n_docs": len(nodes),
+    }
 
 
 def tfidf_graph_topics(
@@ -6,104 +44,79 @@ def tfidf_graph_topics(
     min_count=4,
     min_df=3,
     max_df=0.25,
-    # minimum_tfidf=0.1,
     avg_degree=5,
     max_features=5000,
-    min_docs=4,
+    min_docs=3,
     top_n_docs=10,
+    max_n_topics=20,
     stopwords=["fr", "en", "url", "media"],
     shuffle=False,
     verbose=True,
+    n_jobs=-1,
 ):
-    from convectors.layers import Tokenize, TfIdf, SnowballStem
-    from .duplicates import remove_near_duplicates
-    from convectors.algorithms.summarization import summarize
-    import networkx as nx
-    import matplotlib.pyplot as plt
-    from cityhash import CityHash64
-
-    # from cdlib import algorithms
-    from louvain_numba import best_partition
-    import pandas as pd
-    import random
-
+    # Tokenization and TF-IDF
     tokenize = Tokenize(stopwords=stopwords)
-    # tokenize += SnowballStem(lang="fr")
     processed_data = tokenize(data)
-    if shuffle:
-        processed_data = [random.sample(text, len(text)) for text in processed_data]
 
-    tfidf = TfIdf(
-        min_df=min_df,
-        max_df=max_df,
-        max_features=max_features,
-        verbose=verbose,
-    )
-    X = tfidf(processed_data)
+    if shuffle:
+        processed_data = [
+            np.random.permutation(text).tolist() for text in processed_data
+        ]
+    # max_df = min(len(data), max_df)
+
+    n = len(data)
+    try:
+        tfidf = TfIdf(
+            min_df=min_df, max_df=max_df, max_features=max_features, verbose=verbose
+        )
+        X = tfidf(processed_data)
+    except:
+        tfidf = TfIdf(min_df=1, max_df=1, max_features=max_features, verbose=verbose)
+        X = tfidf(processed_data)
+
+    # Compute similarity matrix
     sim = X @ X.T
 
-    features = tfidf._vectorizer.get_feature_names_out()
-    # threshold
-    # sim[sim < minimum_tfidf] = 0
-    # print(sim)
-
-    node_to_cm = best_partition(sim)
-
+    # Create graph
     G = nx.Graph()
-    G.add_nodes_from(range(len(node_to_cm)))
-    edges = []
-    for i in range(len(node_to_cm)):
-        for j in range(i + 1, len(node_to_cm)):
-            w = sim[i, j]
-            # if w > minimum_tfidf:
-            edges.append((i, j, w))
-    edges = sorted(edges, key=lambda x: x[2], reverse=True)
-    edges = edges[: avg_degree * len(node_to_cm)]
-    G.add_weighted_edges_from(edges)
+    G.add_nodes_from(range(n))
 
+    # Add edges
+    edges = sparse.triu(sim, k=1)
+    edges = sparse.coo_matrix(edges)
+    top_edges = sorted(
+        zip(edges.row, edges.col, edges.data), key=lambda x: x[2], reverse=True
+    )
+    top_edges = top_edges[: avg_degree * n]
+    G.add_weighted_edges_from(top_edges)
+
+    # Community detection
+    node_to_cm = best_partition(G)
+
+    # Group nodes by community
     cm_to_nodes = {}
     for node, cm in node_to_cm.items():
-        if cm not in cm_to_nodes:
-            cm_to_nodes[cm] = []
-        cm_to_nodes[cm].append(node)
+        cm_to_nodes.setdefault(cm, []).append(node)
+
     cm_to_nodes = {
         cm: nodes for cm, nodes in cm_to_nodes.items() if len(nodes) >= min_docs
     }
+    cm_to_nodes = dict(
+        sorted(cm_to_nodes.items(), key=lambda x: len(x[1]), reverse=True)[
+            :max_n_topics
+        ]
+    )
 
-    # reorder by size
-    cm_to_nodes = {
-        cm: nodes
-        for cm, nodes in sorted(
-            cm_to_nodes.items(), key=lambda x: len(x[1]), reverse=True
-        )
-    }
+    # Extract features
+    features = tfidf._vectorizer.get_feature_names_out()
 
-    topics = []
-    for cm, nodes in cm_to_nodes.items():
-        H = nx.subgraph(G, nodes)
-        try:
-            pr = nx.eigenvector_centrality(H)
-        except:
-            pr = nx.degree_centrality(H)
+    # Process topics in parallel
+    topics = Parallel(n_jobs=n_jobs)(
+        delayed(process_topic)(cm, nodes, G, X, features, data, top_n_docs)
+        for cm, nodes in cm_to_nodes.items()
+    )
 
-        best_docs = sorted(nodes, key=lambda x: pr[x], reverse=True)
+    if verbose:
+        print(pd.DataFrame(topics))
 
-        feats = np.array(X[nodes].sum(axis=0)).flatten()
-        best_feats = np.argsort(feats)[::-1]
-        words = [features[it] for it in best_feats[:10]]
-        topic_text = "\n".join([data[node] for node in best_docs[:top_n_docs]])
-        topic_summary = summarize(topic_text, n=10, boost_words=words)
-        topic_hash = str(CityHash64(topic_summary.encode()) % 100000000)
-        topics.append(
-            {
-                "summary": topic_summary,
-                "docs": [data[node] for node in best_docs[:top_n_docs]],
-                "words": words,
-                "topic_id": topic_hash,
-                "n_docs": len(nodes),
-            }
-        )
-    import pandas as pd
-
-    print(pd.DataFrame(topics))
     return topics
