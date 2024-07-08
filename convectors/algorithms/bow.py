@@ -7,7 +7,9 @@ from .duplicates import remove_near_duplicates
 from convectors.algorithms.summarization import summarize
 from cityhash import CityHash64
 
-# from louvain_numba import best_partition
+from louvain_numba import best_partition
+
+# from community import best_partition
 from joblib import Parallel, delayed
 
 
