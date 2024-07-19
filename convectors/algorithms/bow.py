@@ -13,12 +13,12 @@ from louvain_numba import best_partition
 from joblib import Parallel, delayed
 
 
-def process_topic(cm, nodes, G, X, features, data, top_n_docs):
+def process_topic(cm, nodes, G, X, features, data, top_n_docs, n_sentences=10):
     from community import best_partition
 
     H = G.subgraph(nodes)
     try:
-        pr = nx.eigenvector_centrality(H, max_iter=100, tol=1e-4)
+        pr = nx.eigenvector_centrality(H, max_iter=20, tol=1e-4)
     except:
         pr = nx.degree_centrality(H)
 
@@ -29,7 +29,7 @@ def process_topic(cm, nodes, G, X, features, data, top_n_docs):
     words = [features[i] for i in best_feats]
 
     topic_text = "\n".join([data[node] for node in best_docs])
-    topic_summary = summarize(topic_text, n=10, boost_words=words)
+    topic_summary = summarize(topic_text, n=n_sentences, boost_words=words)
     topic_hash = str(CityHash64(topic_summary.encode()) % 100000000)
 
     return {
@@ -46,10 +46,11 @@ def tfidf_graph_topics(
     min_count=4,
     min_df=3,
     max_df=0.25,
-    avg_degree=5,
+    avg_degree=3,
     max_features=5000,
-    min_docs=3,
+    min_docs=2,
     top_n_docs=10,
+    n_sentences=5,
     max_n_topics=20,
     stopwords=["fr", "en", "url", "media"],
     shuffle=False,
@@ -64,7 +65,6 @@ def tfidf_graph_topics(
         processed_data = [
             np.random.permutation(text).tolist() for text in processed_data
         ]
-    # max_df = min(len(data), max_df)
 
     n = len(data)
     try:
@@ -75,6 +75,7 @@ def tfidf_graph_topics(
     except:
         tfidf = TfIdf(min_df=1, max_df=1, max_features=max_features, verbose=verbose)
         X = tfidf(processed_data)
+        min_docs = 1
 
     # Compute similarity matrix
     sim = X @ X.T
@@ -93,7 +94,7 @@ def tfidf_graph_topics(
     G.add_weighted_edges_from(top_edges)
 
     # Community detection
-    node_to_cm = best_partition(G)
+    node_to_cm = best_partition(G, resolution=1.25)
 
     # Group nodes by community
     cm_to_nodes = {}
@@ -114,7 +115,7 @@ def tfidf_graph_topics(
 
     # Process topics in parallel
     topics = Parallel(n_jobs=n_jobs)(
-        delayed(process_topic)(cm, nodes, G, X, features, data, top_n_docs)
+        delayed(process_topic)(cm, nodes, G, X, features, data, top_n_docs, n_sentences)
         for cm, nodes in cm_to_nodes.items()
     )
 
