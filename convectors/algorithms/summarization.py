@@ -34,7 +34,7 @@ def summarize(
     # Vectorization
     vectorizer = Tokenize(stopwords=["fr", "en", "media", "url"])
     vectorizer += SnowballStem()
-    vectorizer += TfIdf(max_features=2000, min_df=2)
+    vectorizer += TfIdf(max_features=2000, min_df=1)
 
     X = vectorizer(sentences)
 
