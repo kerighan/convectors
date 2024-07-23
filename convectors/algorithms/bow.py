@@ -35,6 +35,7 @@ def process_topic(cm, nodes, G, X, features, data, top_n_docs, n_sentences=10):
     return {
         "summary": topic_summary,
         "docs": [data[node] for node in best_docs],
+        "doc_ids": best_docs,
         "words": words,
         "topic_id": topic_hash,
         "n_docs": len(nodes),
@@ -43,7 +44,6 @@ def process_topic(cm, nodes, G, X, features, data, top_n_docs, n_sentences=10):
 
 def tfidf_graph_topics(
     data,
-    min_count=4,
     min_df=3,
     max_df=0.25,
     avg_degree=3,
@@ -56,6 +56,7 @@ def tfidf_graph_topics(
     shuffle=False,
     verbose=True,
     n_jobs=-1,
+    **kwargs
 ):
     # Tokenization and TF-IDF
     tokenize = Tokenize(stopwords=stopwords)
@@ -118,8 +119,11 @@ def tfidf_graph_topics(
         delayed(process_topic)(cm, nodes, G, X, features, data, top_n_docs, n_sentences)
         for cm, nodes in cm_to_nodes.items()
     )
+    topics = pd.DataFrame(topics)
 
     if verbose:
-        print(pd.DataFrame(topics))
+        print(topics)
 
+    for key, values in kwargs.items():
+        topics[key] = topics["doc_ids"].apply(lambda x: [values[i] for i in x])
     return topics
