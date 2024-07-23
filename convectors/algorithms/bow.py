@@ -17,10 +17,7 @@ def process_topic(cm, nodes, G, X, features, data, top_n_docs, n_sentences=10):
     from community import best_partition
 
     H = G.subgraph(nodes)
-    try:
-        pr = nx.eigenvector_centrality(H, max_iter=20, tol=1e-4)
-    except:
-        pr = nx.degree_centrality(H)
+    pr = nx.degree_centrality(H)
 
     best_docs = sorted(nodes, key=lambda x: pr[x], reverse=True)[:top_n_docs]
 
@@ -95,7 +92,7 @@ def tfidf_graph_topics(
     G.add_weighted_edges_from(top_edges)
 
     # Community detection
-    node_to_cm = best_partition(G, resolution=1.25)
+    node_to_cm = best_partition(G, resolution=2)
 
     # Group nodes by community
     cm_to_nodes = {}

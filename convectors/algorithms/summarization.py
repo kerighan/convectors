@@ -7,7 +7,13 @@ from .duplicates import remove_near_duplicates
 
 
 def summarize(
-    text, n=5, itemize=True, boost_words=None, boost_value=2, similarity_threshold=0.05
+    text,
+    n=5,
+    itemize=True,
+    boost_words=None,
+    boost_value=2,
+    similarity_threshold=0.05,
+    remove_duplicates=False,
 ):
     # Tokenization
     sentence_tokenize = Tokenize(
@@ -28,7 +34,7 @@ def summarize(
     # Vectorization
     vectorizer = Tokenize(stopwords=["fr", "en", "media", "url"])
     vectorizer += SnowballStem()
-    vectorizer += TfIdf()
+    vectorizer += TfIdf(max_features=2000, min_df=2, max_df=0.5)
 
     X = vectorizer(sentences)
 
@@ -47,12 +53,9 @@ def summarize(
     G = nx.from_scipy_sparse_array(A)
     # remove edges where weight < threshold
     for u, v, d in list(G.edges(data=True)):
-        if d["weight"] < 0.1:
+        if d["weight"] < 0.12:
             G.remove_edge(u, v)
-    try:
-        pr = nx.eigenvector_centrality(G, tol=1e-3, max_iter=100)
-    except nx.exception.PowerIterationFailedConvergence:
-        pr = nx.pagerank(G)
+    pr = nx.pagerank(G)
 
     # Select top sentences
     top_indices = sorted(pr, key=pr.get, reverse=True)
@@ -61,8 +64,9 @@ def summarize(
     ]
 
     # Remove near duplicates
-    unique_indices = remove_near_duplicates(top_sentences, threshold=0.7)
-    top_sentences = [top_sentences[i] for i in unique_indices][:n]
+    if remove_duplicates:
+        unique_indices = remove_near_duplicates(top_sentences, threshold=0.7)
+        top_sentences = [top_sentences[i] for i in unique_indices][:n]
 
     if itemize:
         return "- " + "\n- ".join(top_sentences)
