@@ -2,9 +2,10 @@ import numpy as np
 import networkx as nx
 import pandas as pd
 from scipy import sparse
-from convectors.layers import Tokenize, TfIdf
+from convectors.layers import Tokenize, TfIdf, BM25, SnowballStem
 from .duplicates import remove_near_duplicates
 from convectors.algorithms.summarization import summarize
+from .utils import find_proper_names_and_acronyms
 from cityhash import CityHash64
 
 from louvain_numba import best_partition
@@ -26,7 +27,7 @@ def process_topic(cm, nodes, G, X, features, data, top_n_docs, n_sentences=10):
     words = [features[i] for i in best_feats]
 
     topic_text = "\n".join([data[node] for node in best_docs])
-    topic_summary = summarize(topic_text, n=n_sentences, boost_words=words)
+    topic_summary = summarize(topic_text, n=n_sentences, boost_words=words, group=8)
     topic_hash = str(CityHash64(topic_summary.encode()) % 100000000)
 
     return {
@@ -43,39 +44,36 @@ def tfidf_graph_topics(
     data,
     min_df=3,
     max_df=0.25,
-    avg_degree=3,
+    avg_degree=2,
     max_features=5000,
     min_docs=2,
     top_n_docs=10,
-    n_sentences=5,
+    n_sentences=3,
     max_n_topics=20,
     stopwords=["fr", "en", "url", "media"],
     shuffle=False,
-    verbose=True,
     n_jobs=-1,
     **kwargs
 ):
     # Tokenization and TF-IDF
     tokenize = Tokenize(stopwords=stopwords)
+    snowball = SnowballStem()
     processed_data = tokenize(data)
-
-    if shuffle:
-        processed_data = [
-            np.random.permutation(text).tolist() for text in processed_data
-        ]
+    ner = [find_proper_names_and_acronyms(doc) for doc in data]
+    docs = []
+    for doc, (proper_names, acronyms) in zip(processed_data, ner):
+        doc = doc + proper_names + acronyms
+        docs.append(doc)
 
     n = len(data)
     try:
-        tfidf = TfIdf(
-            min_df=min_df, max_df=max_df, max_features=max_features, verbose=verbose
-        )
-        X = tfidf(processed_data)
+        vectorizer = TfIdf(min_df=min_df, max_df=max_df, max_features=max_features)
     except:
-        tfidf = TfIdf(min_df=1, max_df=1, max_features=max_features, verbose=verbose)
-        X = tfidf(processed_data)
+        vectorizer = TfIdf(min_df=1, max_df=1, max_features=max_features)
         min_docs = 1
 
     # Compute similarity matrix
+    X = vectorizer(snowball(docs))
     sim = X @ X.T
 
     # Create graph
@@ -90,9 +88,6 @@ def tfidf_graph_topics(
     )
     top_edges = top_edges[: avg_degree * n]
     G.add_weighted_edges_from(top_edges)
-
-    # Community detection
-    node_to_cm = best_partition(G, resolution=2)
 
     # Group nodes by community
     cm_to_nodes = {}
@@ -109,7 +104,8 @@ def tfidf_graph_topics(
     )
 
     # Extract features
-    features = tfidf._vectorizer.get_feature_names_out()
+    # features = vectorizer._vectorizer.get_feature_names_out()
+    features = vectorizer._vectorizer.get_feature_names_out()
 
     # Process topics in parallel
     topics = Parallel(n_jobs=n_jobs)(
@@ -118,8 +114,12 @@ def tfidf_graph_topics(
     )
     topics = pd.DataFrame(topics)
 
-    if verbose:
-        print(topics)
+    from pprint import pprint
+
+    for _, row in topics.iterrows():
+        print(row["topic_id"])
+        print(row["summary"])
+        print("\n\n")
 
     for key, values in kwargs.items():
         topics[key] = topics["doc_ids"].apply(lambda x: [values[i] for i in x])

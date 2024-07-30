@@ -5,14 +5,24 @@ from sklearn.preprocessing import normalize
 
 
 class BM25Vectorizer:
-    def __init__(self, k1=1.5, b=0.75, max_features=None, dtype=np.float32):
+    def __init__(
+        self,
+        k1=1.5,
+        b=0.75,
+        max_features=None,
+        dtype=np.float32,
+        min_df=1,
+        max_df=1.0,
+    ):
         self.k1 = k1
         self.b = b
-        self.vectorizer = CountVectorizer(
+        self._vectorizer = CountVectorizer(
             token_pattern=None,
             max_features=max_features,
             tokenizer=lambda x: x,
             preprocessor=lambda x: x,
+            min_df=min_df,
+            max_df=max_df,
         )
         self.avg_doc_length = 0.0
         self.weights = None
@@ -22,7 +32,7 @@ class BM25Vectorizer:
         """
         Learn vocabulary and idf from training set.
         """
-        X = self.vectorizer.fit_transform(raw_documents)
+        X = self._vectorizer.fit_transform(raw_documents)
         self.doc_count, _ = X.shape
         self.avg_doc_length = X.sum() / self.doc_count
         doc_lengths = X.sum(axis=1)
@@ -38,6 +48,9 @@ class BM25Vectorizer:
         self._trained = True
         return self
 
+    def get_feature_names_out(self):
+        return self._vectorizer.get_feature_names_out()
+
     def _bm25_weight(self, row, col, data, doc_id):
         """Compute individual BM25 weights"""
         return (data * (self.k1 + 1)) / (data + self.denom[doc_id]) * self.idf[col]
@@ -46,7 +59,7 @@ class BM25Vectorizer:
         """
         Transform documents to BM25 feature matrix using vectorized operations.
         """
-        X = self.vectorizer.transform(raw_documents)
+        X = self._vectorizer.transform(raw_documents)
         rows, cols, data = find(X)
 
         # Vectorized computation of BM25 weights

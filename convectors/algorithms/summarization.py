@@ -4,6 +4,7 @@ from sklearn.preprocessing import normalize
 import networkx as nx
 from convectors.layers import Tokenize, TfIdf, SnowballStem
 from .duplicates import remove_near_duplicates
+from .utils import find_proper_names_and_acronyms
 
 
 def summarize(
@@ -14,6 +15,7 @@ def summarize(
     boost_value=2,
     similarity_threshold=0.05,
     remove_duplicates=False,
+    group=3,
 ):
     # Tokenization
     sentence_tokenize = Tokenize(
@@ -26,17 +28,36 @@ def summarize(
     )
     sentences = sentence_tokenize(text)
 
-    # Pair adjacent sentences
+    # Group adjacent sentences by group
     sentences = [
-        f"{sentences[i]} {sentences[i+1]}" for i in range(0, len(sentences) - 1, 2)
+        " ".join(sentences[i : i + group]) for i in range(0, len(sentences), group)
     ]
 
+    ner = [find_proper_names_and_acronyms(sentence) for sentence in sentences]
+    ner_score = (
+        np.array(
+            [
+                np.log(1 + len(proper_names)) + np.log(1 + len(acronyms))
+                for proper_names, acronyms in ner
+            ]
+        )
+        + 1e-6
+    )
+    ner_score /= ner_score.max()
+
     # Vectorization
-    vectorizer = Tokenize(stopwords=["fr", "en", "media", "url"])
-    vectorizer += SnowballStem()
+    tokenizer = Tokenize(stopwords=["fr", "en", "media", "url"])
+    X = tokenizer(sentences)
+
+    docs = []
+    for doc, (proper_names, acronyms) in zip(X, ner):
+        doc = doc + proper_names + acronyms
+        docs.append(doc)
+
+    vectorizer = SnowballStem()
     vectorizer += TfIdf(max_features=2000, min_df=1)
 
-    X = vectorizer(sentences)
+    X = vectorizer(docs)
 
     # Boost words if provided
     if boost_words:
@@ -56,6 +77,7 @@ def summarize(
         if d["weight"] < 0.12:
             G.remove_edge(u, v)
     pr = nx.pagerank(G)
+    pr = {i: pr[i] * (1 + ner_score[i]) for i in pr}
 
     # Select top sentences
     top_indices = sorted(pr, key=pr.get, reverse=True)
@@ -67,6 +89,8 @@ def summarize(
     if remove_duplicates:
         unique_indices = remove_near_duplicates(top_sentences, threshold=0.7)
         top_sentences = [top_sentences[i] for i in unique_indices][:n]
+    else:
+        top_sentences = top_sentences[:n]
 
     if itemize:
         return "- " + "\n- ".join(top_sentences)
