@@ -34,14 +34,11 @@ def summarize(
     ]
 
     ner = [find_proper_names_and_acronyms(sentence) for sentence in sentences]
-    ner_score = (
-        np.array(
-            [
-                np.log(1 + len(proper_names)) + np.log(1 + len(acronyms))
-                for proper_names, acronyms in ner
-            ]
-        )
-        + 1e-6
+    ner_score = np.array(
+        [
+            np.log(1 + len(proper_names)) + np.log(1 + len(acronyms)) + 1e-6
+            for proper_names, acronyms in ner
+        ]
     )
     ner_score /= ner_score.max()
 
@@ -51,7 +48,7 @@ def summarize(
 
     docs = []
     for doc, (proper_names, acronyms) in zip(X, ner):
-        doc = doc + proper_names + acronyms
+        doc = doc + [it.replace("-", " ") for it in proper_names] + acronyms
         docs.append(doc)
 
     vectorizer = SnowballStem()

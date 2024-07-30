@@ -59,10 +59,10 @@ def tfidf_graph_topics(
     tokenize = Tokenize(stopwords=stopwords)
     snowball = SnowballStem()
     processed_data = tokenize(data)
-    ner = [find_proper_names_and_acronyms(doc) for doc in data]
+    ner = [find_proper_names_and_acronyms(sentence) for sentence in data]
     docs = []
     for doc, (proper_names, acronyms) in zip(processed_data, ner):
-        doc = doc + proper_names + acronyms
+        doc = doc + [it.replace("-", " ") for it in proper_names] + acronyms
         docs.append(doc)
 
     n = len(data)
