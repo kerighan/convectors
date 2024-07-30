@@ -68,12 +68,13 @@ def tfidf_graph_topics(
     n = len(data)
     try:
         vectorizer = TfIdf(min_df=min_df, max_df=max_df, max_features=max_features)
+        X = vectorizer(snowball(docs))
     except:
         vectorizer = TfIdf(min_df=1, max_df=1, max_features=max_features)
+        X = vectorizer(snowball(docs))
         min_docs = 1
 
     # Compute similarity matrix
-    X = vectorizer(snowball(docs))
     sim = X @ X.T
 
     # Create graph
@@ -90,6 +91,7 @@ def tfidf_graph_topics(
     G.add_weighted_edges_from(top_edges)
 
     # Group nodes by community
+    node_to_cm = best_partition(G, resolution=2.0)
     cm_to_nodes = {}
     for node, cm in node_to_cm.items():
         cm_to_nodes.setdefault(cm, []).append(node)
@@ -114,12 +116,10 @@ def tfidf_graph_topics(
     )
     topics = pd.DataFrame(topics)
 
-    from pprint import pprint
-
-    for _, row in topics.iterrows():
-        print(row["topic_id"])
-        print(row["summary"])
-        print("\n\n")
+    # for _, row in topics.iterrows():
+    #     print(row["topic_id"])
+    #     print(row["summary"])
+    #     print("\n\n")
 
     for key, values in kwargs.items():
         topics[key] = topics["doc_ids"].apply(lambda x: [values[i] for i in x])
