@@ -2,6 +2,7 @@ from ..base_layer import Layer
 from typing import Any, Callable, List, Optional, Set, Union, Dict
 
 
+# Warning: cannot be pickled
 class Annoy(Layer):
     _trainable = True
 
@@ -76,17 +77,16 @@ class HNSW(Layer):
         import hnswlib
 
         self._model = hnswlib.Index(space=self._metric, dim=X.shape[1])
+        self._model.init_index(
+            max_elements=len(X), ef_construction=self._ef_construction, M=16
+        )
+
         self._index_to_doc = {}
         if docs is None:
             docs = range(len(X))
         self._model.add_items(X, range(len(X)))
         for i, doc in enumerate(docs):
             self._index_to_doc[i] = doc
-        # for i, (row, doc) in enumerate(zip(X, docs)):
-        #     self._model.add_items([row], [i])
-        #     self._index_to_doc[i] = doc
-        self._model.set_ef(self._ef)
-        self._model.set_ef_construction(self._ef_construction)
 
         self._trained = True
         return self
@@ -101,6 +101,7 @@ class HNSW(Layer):
                 else:
                     res.append(self._index_to_doc[ids[0]])
             else:
+                ids = ids[0]
                 res.append([self._index_to_doc[i] for i in ids])
         return res
 
