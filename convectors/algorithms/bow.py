@@ -62,7 +62,7 @@ def tfidf_graph_topics(
     ner = [find_proper_names_and_acronyms(sentence) for sentence in data]
     docs = []
     for doc, (proper_names, acronyms) in zip(processed_data, ner):
-        doc = doc + [it.replace("-", " ") for it in proper_names] + acronyms
+        doc = doc + [it.replace("-", " ") for it in proper_names] + acronyms * 2
         docs.append(doc)
 
     n = len(data)
