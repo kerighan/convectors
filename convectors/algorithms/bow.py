@@ -52,6 +52,7 @@ def tfidf_graph_topics(
     max_n_topics=20,
     stopwords=["fr", "en", "url", "media"],
     shuffle=False,
+    names_repeat=2,
     n_jobs=-1,
     **kwargs
 ):
@@ -62,7 +63,8 @@ def tfidf_graph_topics(
     ner = [find_proper_names_and_acronyms(sentence) for sentence in data]
     docs = []
     for doc, (proper_names, acronyms) in zip(processed_data, ner):
-        doc = doc + [it.replace("-", " ") for it in proper_names] + acronyms * 2
+        names = [it.replace("-", " ") for it in proper_names]
+        doc = doc + names * names_repeat + acronyms * names_repeat
         docs.append(doc)
 
     n = len(data)
