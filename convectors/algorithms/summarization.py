@@ -16,6 +16,8 @@ def summarize(
     similarity_threshold=0.05,
     remove_duplicates=False,
     group=3,
+    min_length=35,
+    max_length=768,
 ):
     # Tokenization
     sentence_tokenize = Tokenize(
@@ -69,17 +71,30 @@ def summarize(
 
     # Create graph and compute centrality
     G = nx.from_scipy_sparse_array(A)
-    # remove edges where weight < threshold
+    # Remove edges where weight < threshold
     for u, v, d in list(G.edges(data=True)):
         if d["weight"] < 0.12:
             G.remove_edge(u, v)
     pr = nx.pagerank(G)
     pr = {i: pr[i] * (1 + ner_score[i]) for i in pr}
 
+    # Adjust scores based on sentence length
+    length_penalty = {
+        i: 1.0
+        - (
+            abs(len(sentences[i]) - (min_length + max_length) / 2)
+            / ((max_length - min_length) / 2)
+        )
+        for i in pr
+    }
+    # Ensure penalties remain between 0 and 1
+    length_penalty = {i: max(0, min(1, score)) for i, score in length_penalty.items()}
+    pr = {i: pr[i] * length_penalty[i] for i in pr}
+
     # Select top sentences
     top_indices = sorted(pr, key=pr.get, reverse=True)
     top_sentences = [
-        sentences[i].strip() for i in top_indices if len(sentences[i]) > 30
+        sentences[i].strip() for i in top_indices if len(sentences[i]) > min_length
     ]
 
     # Remove near duplicates

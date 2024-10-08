@@ -88,6 +88,63 @@ class Tokenize(Layer):
         )
 
 
+class FreqFilter(Layer):
+    """
+    This class represents a layer that filters tokens based on their frequency.
+    It inherits from the Layer class and overrides the constructor to handle
+    frequency filtering parameters.
+
+    Parameters
+    ----------
+    min_freq : int, optional
+        The minimum frequency of a token to be included in the output. Default
+        is 1.
+    max_freq : int, optional
+        The maximum frequency of a token to be included in the output. Default
+        is +inf.
+    max_features : int, optional
+        The maximum number of features to keep. Default is None.
+    name : str, optional
+        The name of the layer. If not given, the name will be derived from the
+        class name.
+    verbose : bool, optional
+        If True, the layer will output verbose messages during execution.
+        Default is True.
+    """
+
+    def __init__(
+        self,
+        min_freq: int = 1,
+        max_freq: Optional[int] = float("inf"),
+        max_features: Optional[int] = None,
+        name: Optional[str] = None,
+        verbose: bool = False,
+    ) -> None:
+        super().__init__(name, verbose)
+        self._min_freq = min_freq
+        self._max_freq = max_freq
+        self._max_features = max_features
+
+    def fit(self, documents: Any) -> None:
+        from collections import Counter
+        import itertools
+
+        count = Counter(itertools.chain(*documents))
+
+        self._vocab = {
+            word: idx
+            for idx, (word, freq) in enumerate(count.most_common())
+            if self._min_freq <= freq <= self._max_freq
+        }
+        if self._max_features is not None:
+            self._vocab = dict(
+                itertools.islice(self._vocab.items(), self._max_features)
+            )
+
+    def process_document(self, text: List[str]) -> List[str]:
+        return [w for w in text if w in self._vocab]
+
+
 class NGrams(Layer):
     """
     This class represents a layer that creates n-grams from the input. It
