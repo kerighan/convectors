@@ -13,7 +13,7 @@ from .preprocessing import (
 from .tokenizers import Tokenize, SnowballStem, Tiktokenize, TokenMonster, NGrams
 from .vectorizers import TfIdf, CountVectorizer, HashingVectorizer, BM25
 from .knn import Annoy, HNSW, NNDescent, KDTree
-from .reduction import SVD
+from .reduction import SVD, PCA, UMAP
 from .operations import Lambda
 from .keras import Keras
 
@@ -39,6 +39,8 @@ __all__ = [
     "HashingVectorizer",
     "BM25",
     "SVD",
+    "PCA",
+    "UMAP",
     "Lambda",
     "Keras",
     "Annoy",
