@@ -7,6 +7,7 @@ from .base import (
     Sub,
     FindAll,
     Normalize,
+    Limit,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "Sub",
     "FindAll",
     "Normalize",
+    "Limit",
 ]

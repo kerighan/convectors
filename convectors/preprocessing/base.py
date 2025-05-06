@@ -33,6 +33,20 @@ class Suffix(Layer):
         return document + self.suffix
 
 
+class Limit(Layer):
+    def __init__(
+        self,
+        limit: int,
+        name: Optional[str] = None,
+        verbose: bool = False,
+    ) -> None:
+        super().__init__(name, verbose)
+        self.limit = limit
+
+    def process_document(self, document: Any) -> Any:
+        return document[: self.limit]
+
+
 class Pad(Layer):
     def __init__(
         self,
