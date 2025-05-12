@@ -155,6 +155,7 @@ class KDTree(Layer):
         k: int = 10,
         threshold: float = None,
         metric: str = "euclidean",
+        return_distances: bool = False,
         name: Optional[str] = None,
         verbose: bool = False,
     ):
@@ -162,6 +163,7 @@ class KDTree(Layer):
         self._k = k
         self._metric = metric
         self._threshold = threshold
+        self._return_distances = return_distances
 
     def fit(self, X, docs=None, y=None):
         from sklearn.neighbors import KDTree
@@ -191,6 +193,24 @@ class KDTree(Layer):
                             res.append(None)
             else:
                 if self._threshold is not None:
-                    row = [i for i, d in zip(row, dists) if d < self._threshold]
-                res.append([self._index_to_doc[i] for i in row])
+                    if self._return_distances:
+                        row = [
+                            (self._index_to_doc[i], d)
+                            for i, d in zip(row, dists)
+                            if d < self._threshold
+                        ]
+                    else:
+                        row = [
+                            self._index_to_doc[i]
+                            for i, d in zip(row, dists)
+                            if d < self._threshold
+                        ]
+                    res.append(row)
+                else:
+                    if self._return_distances:
+                        res.append(
+                            [(self._index_to_doc[i], d) for i, d in zip(row, dists)]
+                        )
+                    else:
+                        res.append([self._index_to_doc[i] for i in row])
         return res
