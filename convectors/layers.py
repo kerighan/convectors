@@ -10,7 +10,14 @@ from .preprocessing import (
     FindAll,
     Normalize,
 )
-from .tokenizers import Tokenize, SnowballStem, Tiktokenize, TokenMonster, NGrams
+from .tokenizers import (
+    Tokenize,
+    SnowballStem,
+    Tiktokenize,
+    TokenMonster,
+    NGrams,
+    AutoTokenize,
+)
 from .vectorizers import TfIdf, CountVectorizer, HashingVectorizer, BM25
 from .knn import Annoy, HNSW, NNDescent, KDTree
 from .reduction import SVD, PCA, UMAP
@@ -25,6 +32,7 @@ __all__ = [
     "SnowballStem",
     "Tiktokenize",
     "TokenMonster",
+    "AutoTokenize",
     "Prefix",
     "Suffix",
     "Concatenate",
