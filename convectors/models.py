@@ -1,15 +1,50 @@
 import networkx as nx
 import pandas as pd
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+
+from .base_layer import Layer
 
 
 class Model:
+    """
+    A model that represents a directed acyclic graph (DAG) of layers.
+    
+    The Model class allows for the creation of complex processing pipelines
+    by connecting multiple layers together. It handles the flow of data through
+    the layers and ensures that the graph is a valid DAG.
+    
+    Parameters
+    ----------
+    inputs : Layer or List[Layer], optional
+        The input layer(s) of the model.
+    outputs : Layer or List[Layer], optional
+        The output layer(s) of the model.
+    name : str, optional
+        The name of the model. If not provided, the class name is used.
+    
+    Attributes
+    ----------
+    name : str
+        The name of the model.
+    _inputs : List[Layer]
+        The input layers of the model.
+    _outputs : List[Layer]
+        The output layers of the model.
+    _topological_sort : List[Layer]
+        The layers of the model in topological order.
+    _input_layer_names : List[str]
+        The names of the input layers.
+    _output_layer_names : List[str]
+        The names of the output layers.
+    """
+    
     def __init__(
         self,
-        inputs=None,
-        outputs=None,
-        name=None,
-    ):
-        self.name = name or self.__class__.__name__
+        inputs: Optional[Union[Layer, List[Layer]]] = None,
+        outputs: Optional[Union[Layer, List[Layer]]] = None,
+        name: Optional[str] = None,
+    ) -> None:
+        self.name: str = name or self.__class__.__name__
         # generate graph from inputs and outputs
         self._graph = self._generate_graph(inputs, outputs)
 
@@ -17,22 +52,43 @@ class Model:
     # Private methods
     # ---------------------------------------
 
-    def _generate_graph(self, inputs, outputs):
+    def _generate_graph(self, inputs: Optional[Union[Layer, List[Layer]]], 
+                        outputs: Optional[Union[Layer, List[Layer]]]) -> nx.DiGraph:
+        """
+        Generate a directed acyclic graph (DAG) from the input and output layers.
+        
+        Parameters
+        ----------
+        inputs : Layer or List[Layer], optional
+            The input layer(s) of the model.
+        outputs : Layer or List[Layer], optional
+            The output layer(s) of the model.
+            
+        Returns
+        -------
+        nx.DiGraph
+            The generated graph.
+            
+        Raises
+        ------
+        ValueError
+            If the graph is not a DAG.
+        """
         if not isinstance(inputs, list):
             inputs = [inputs]
         if not isinstance(outputs, list):
             outputs = [outputs]
 
         # store inputs and outputs
-        self._inputs = inputs
-        self._outputs = outputs
+        self._inputs: List[Layer] = inputs
+        self._outputs: List[Layer] = outputs
 
         # layers have a _children attribute where we can find the next layers
         # in the graph. We can use a breadth-first search to find all layers
         # connected to the inputs.
-        edges = set()
-        queue = []
-        nodes = set()
+        edges: Set[Tuple[Layer, Layer]] = set()
+        queue: List[Layer] = []
+        nodes: Set[Layer] = set()
         for input_layer in inputs:
             queue.append(input_layer)
 
@@ -62,11 +118,11 @@ class Model:
         # this is done to avoid name collisions
 
         # get topological sort
-        topological_sort = list(nx.topological_sort(G))
+        topological_sort: List[Layer] = list(nx.topological_sort(G))
         # get layer names
-        layer_names = [layer.name for layer in topological_sort]
+        layer_names: List[str] = [layer.name for layer in topological_sort]
         # change name of layers that are not unique
-        occurrences = {}
+        occurrences: Dict[str, int] = {}
         for i, layer in enumerate(topological_sort):
             layer_name = layer.name
             if layer_names.count(layer_name) > 1:
@@ -74,19 +130,19 @@ class Model:
                     occurrences[layer_name] = 1
                 layer.name = f"{layer_name}_{occurrences[layer_name]}"
                 occurrences[layer_name] += 1
-        self._output_layer_names = [layer.name for layer in outputs]
-        self._input_layer_names = [layer.name for layer in inputs]
-        self._topological_sort = topological_sort
+        self._output_layer_names: List[str] = [layer.name for layer in outputs]
+        self._input_layer_names: List[str] = [layer.name for layer in inputs]
+        self._topological_sort: List[Layer] = topological_sort
 
         # call functions in topsort order
-        remaining_calls = {
+        remaining_calls: Dict[str, int] = {
             layer.name: len(layer._children) for layer in self._topological_sort
         }
         for layer_name in self._output_layer_names:
             remaining_calls[layer_name] += 1
 
-        # check that all layers are connected. If not, remove from topological
-        layers_to_remove = []
+        # check that all layers are connected. If not, remove from topological sort
+        layers_to_remove: List[str] = []
         for layer_name, occ in remaining_calls.items():
             if occ == 0:
                 layers_to_remove.append(layer_name)
@@ -97,10 +153,29 @@ class Model:
                 if layer.name == layer_name:
                     self._topological_sort.remove(layer)
                     break
+                    
+        return G
 
-    def _call(self, *args, method="auto", batch_size=None):
+    def _call(self, *args: Any, method: str = "auto", batch_size: Optional[int] = None) -> Any:
+        """
+        Process data in batches.
+        
+        Parameters
+        ----------
+        *args : Any
+            The input data to process.
+        method : str, default="auto"
+            The method to use for processing. Can be "auto", "fit", "predict", or "fit_predict".
+        batch_size : int, optional
+            The size of each batch. If None, all data is processed at once.
+            
+        Yields
+        ------
+        Any
+            The processed data for each batch.
+        """
         # get the next batch for all arguments by looping
-        # (in case the data cpùes from a generator)
+        # (in case the data comes from a generator)
         index = 0
         while True:
             batch = []
@@ -129,21 +204,37 @@ class Model:
             if len(batch[0]) == 0:
                 break
 
-    def _call_on_batch(self, *args, method="auto"):
+    def _call_on_batch(self, *args: Any, method: str = "auto") -> Any:
+        """
+        Process a single batch of data.
+        
+        Parameters
+        ----------
+        *args : Any
+            The input data to process.
+        method : str, default="auto"
+            The method to use for processing. Can be "auto", "fit", "predict", or "fit_predict".
+            
+        Returns
+        -------
+        Any
+            The processed data.
+        """
         # handle the case of single strings as inputs
+        _return_single_element = False
         for arg in args:
             if isinstance(arg, str):
                 _return_single_element = True
-            else:
-                _return_single_element = False
+                break
+        
         # in this case, encapsulate the string in a list
         if _return_single_element:
-            data = {name: [arg] for name, arg in zip(self._input_layer_names, args)}
+            data: Dict[str, Any] = {name: [arg] for name, arg in zip(self._input_layer_names, args)}
         else:
             data = {name: arg for name, arg in zip(self._input_layer_names, args)}
 
         # call functions in topsort order
-        remaining_calls = {
+        remaining_calls: Dict[str, int] = {
             layer.name: len(layer._children) for layer in self._topological_sort
         }
         for layer_name in self._output_layer_names:
@@ -177,7 +268,7 @@ class Model:
             for parent in antecedents:
                 remaining_calls[parent.name] -= 1
             # garbage collect
-            for layer_name in remaining_calls:
+            for layer_name in list(remaining_calls.keys()):
                 if remaining_calls[layer_name] == 0:
                     del data[layer_name]
             remaining_calls = {
@@ -200,16 +291,69 @@ class Model:
     # Public methods
     # ---------------------------------------
 
-    def fit_predict(self, *args, batch_size=None):
+    def fit_predict(self, *args: Any, batch_size: Optional[int] = None) -> Any:
+        """
+        Fit the model to the data and then predict.
+        
+        Parameters
+        ----------
+        *args : Any
+            The input data to fit and predict.
+        batch_size : int, optional
+            The size of each batch. If None, all data is processed at once.
+            
+        Returns
+        -------
+        Any
+            The predicted data.
+        """
         return self._call(*args, method="fit_predict", batch_size=batch_size)
 
-    def predict(self, *args, batch_size=None):
+    def predict(self, *args: Any, batch_size: Optional[int] = None) -> Any:
+        """
+        Predict using the model.
+        
+        Parameters
+        ----------
+        *args : Any
+            The input data to predict.
+        batch_size : int, optional
+            The size of each batch. If None, all data is processed at once.
+            
+        Returns
+        -------
+        Any
+            The predicted data.
+        """
         return self._call(*args, method="predict", batch_size=batch_size)
 
-    def fit(self, *args, batch_size=None):
+    def fit(self, *args: Any, batch_size: Optional[int] = None) -> "Model":
+        """
+        Fit the model to the data.
+        
+        Parameters
+        ----------
+        *args : Any
+            The input data to fit.
+        batch_size : int, optional
+            The size of each batch. If None, all data is processed at once.
+            
+        Returns
+        -------
+        Model
+            The fitted model.
+        """
         return self._call(*args, method="fit", batch_size=batch_size)
 
-    def save(self, filename):
+    def save(self, filename: str) -> None:
+        """
+        Save the model to a file.
+        
+        Parameters
+        ----------
+        filename : str
+            The name of the file to save the model to.
+        """
         import dill
 
         for layer in self._topological_sort:
@@ -225,13 +369,46 @@ class Model:
     # Overloaded methods
     # ---------------------------------------
 
-    def __call__(self, *args, batch_size=None):
+    def __call__(self, *args: Any, batch_size: Optional[int] = None) -> Any:
+        """
+        Call the model on the input data.
+        
+        Parameters
+        ----------
+        *args : Any
+            The input data to process.
+        batch_size : int, optional
+            The size of each batch. If None, all data is processed at once.
+            
+        Returns
+        -------
+        Any
+            The processed data.
+        """
         if batch_size is None:
             return self._call_on_batch(*args)
         else:
             return self._call(*args, batch_size=batch_size)
 
-    def __getitem__(self, layer_name):
+    def __getitem__(self, layer_name: str) -> Layer:
+        """
+        Get a layer by name.
+        
+        Parameters
+        ----------
+        layer_name : str
+            The name of the layer to get.
+            
+        Returns
+        -------
+        Layer
+            The layer with the given name.
+            
+        Raises
+        ------
+        KeyError
+            If no layer with the given name exists.
+        """
         for layer in self._topological_sort:
             if layer.name == layer_name:
                 return layer
@@ -239,32 +416,97 @@ class Model:
 
 
 class Sequential(Model):
-    def __init__(self, layers):
+    """
+    A sequential model that represents a linear stack of layers.
+    
+    The Sequential model is a linear stack of layers, where each layer
+    has exactly one input and one output. It is a simplified version of
+    the Model class.
+    
+    Parameters
+    ----------
+    layers : List[Layer]
+        The layers to add to the model.
+        
+    Attributes
+    ----------
+    _layers : List[Layer]
+        The layers of the model.
+    """
+    
+    def __init__(self, layers: List[Layer]) -> None:
         from .layers import Input
 
         layers = [Input()] + layers
-        self._layers = layers
+        self._layers: List[Layer] = layers
         for parent, child in zip(layers[:-1], layers[1:]):
             child.input(parent)
         inputs = [layers[0]]
         outputs = [layers[-1]]
         super().__init__(inputs, outputs)
 
-    def add(self, layer):
+    def add(self, layer: Layer) -> None:
+        """
+        Add a layer to the model.
+        
+        Parameters
+        ----------
+        layer : Layer
+            The layer to add to the model.
+        """
         layer.input(self._layers[-1])
         self._layers.append(layer)
         super().__init__(self._layers[0], self._layers[-1])
 
-    def __iadd__(self, layer):
+    def __iadd__(self, layer: Layer) -> "Sequential":
+        """
+        Add a layer to the model in-place.
+        
+        Parameters
+        ----------
+        layer : Layer
+            The layer to add to the model.
+            
+        Returns
+        -------
+        Sequential
+            The model with the added layer.
+        """
         self.add(layer)
         return self
 
-    def __add__(self, layer):
-        new_model = Sequential(self._layers + [layer])
+    def __add__(self, layer: Layer) -> "Sequential":
+        """
+        Add a layer to the model and return a new model.
+        
+        Parameters
+        ----------
+        layer : Layer
+            The layer to add to the model.
+            
+        Returns
+        -------
+        Sequential
+            A new model with the added layer.
+        """
+        new_model = Sequential(self._layers[1:] + [layer])
         return new_model
 
 
-def load_model(filename):
+def load_model(filename: str) -> Any:
+    """
+    Load a model from a file.
+    
+    Parameters
+    ----------
+    filename : str
+        The name of the file to load the model from.
+        
+    Returns
+    -------
+    Any
+        The loaded model.
+    """
     import dill
 
     with open(filename, "rb") as f:
